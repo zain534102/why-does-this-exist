@@ -1,0 +1,7 @@
+[install]
+# Use exact versions
+exact = true
+
+[test]
+# Coverage settings
+coverage = false
