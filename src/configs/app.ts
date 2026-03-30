@@ -1,8 +1,3 @@
-/**
- * Application Configuration
- * Similar to Laravel's config/app.php pattern
- */
-
 export interface AppConfig {
   name: string;
   verbose: boolean;
@@ -12,9 +7,6 @@ export interface AppConfig {
   maxLinkedIssues: number;
 }
 
-/**
- * Load application configuration from environment
- */
 export function loadAppConfig(): AppConfig {
   return {
     name: 'wde',

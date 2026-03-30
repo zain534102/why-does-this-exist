@@ -5,12 +5,8 @@ import { getGitHubToken } from './config-manager';
 
 type GitHubHeaders = Record<string, string>;
 
-// Cached token to avoid repeated keychain lookups
 let cachedToken: string | null | undefined = undefined;
 
-/**
- * Get GitHub token (from keychain or env)
- */
 async function resolveToken(): Promise<string | null> {
   if (cachedToken === undefined) {
     cachedToken = await getGitHubToken();
@@ -18,16 +14,10 @@ async function resolveToken(): Promise<string | null> {
   return cachedToken;
 }
 
-/**
- * Check if GitHub token is available
- */
 async function hasToken(): Promise<boolean> {
   return !!(await resolveToken());
 }
 
-/**
- * Get headers for GitHub API requests
- */
 async function getHeaders(): Promise<GitHubHeaders> {
   const cfg = github();
   const token = await resolveToken();
@@ -44,16 +34,10 @@ async function getHeaders(): Promise<GitHubHeaders> {
   return headers;
 }
 
-/**
- * Get GitHub API base URL from config
- */
 function getApiBase(): string {
   return github().apiBase;
 }
 
-/**
- * Handle GitHub API response errors
- */
 async function handleResponse(response: Response): Promise<unknown> {
   const rateLimitRemaining = parseInt(response.headers.get('X-RateLimit-Remaining') ?? '0', 10);
   const rateLimitResetTimestamp = parseInt(response.headers.get('X-RateLimit-Reset') ?? '0', 10);
@@ -95,9 +79,6 @@ async function handleResponse(response: Response): Promise<unknown> {
   return response.json();
 }
 
-/**
- * Fetch a Pull Request from GitHub
- */
 export async function fetchPR(owner: string, repo: string, prNumber: number): Promise<PRContext | null> {
   try {
     const url = `${getApiBase()}/repos/${owner}/${repo}/pulls/${prNumber}`;
@@ -110,10 +91,7 @@ export async function fetchPR(owner: string, repo: string, prNumber: number): Pr
       state: string;
     };
 
-    // Fetch review comments
     const reviewComments = await fetchReviewComments(owner, repo, prNumber);
-
-    // Fetch general comments
     const comments = await fetchPRComments(owner, repo, prNumber);
 
     return {
@@ -133,9 +111,6 @@ export async function fetchPR(owner: string, repo: string, prNumber: number): Pr
   }
 }
 
-/**
- * Fetch PR review comments (inline code comments)
- */
 async function fetchReviewComments(owner: string, repo: string, prNumber: number): Promise<ReviewComment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=${cfg.perPage}`;
@@ -162,9 +137,6 @@ async function fetchReviewComments(owner: string, repo: string, prNumber: number
     }));
 }
 
-/**
- * Fetch PR general comments (conversation)
- */
 async function fetchPRComments(owner: string, repo: string, prNumber: number): Promise<Comment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=${cfg.perPage}`;
@@ -190,10 +162,6 @@ async function fetchPRComments(owner: string, repo: string, prNumber: number): P
     }));
 }
 
-/**
- * Extract issue numbers from PR body
- * Supports: Fixes #123, Closes #123, Resolves #123, Related to #123
- */
 export function extractIssueNumbers(prBody: string): number[] {
   const patterns = [
     /(?:fix(?:es)?|close[sd]?|resolve[sd]?|related\s+to)\s+#(\d+)/gi,
@@ -209,12 +177,10 @@ export function extractIssueNumbers(prBody: string): number[] {
     }
   }
 
-  // Also match standalone issue references #123 (but be more conservative)
   const standalonePattern = /#(\d+)/g;
   let match;
   while ((match = standalonePattern.exec(prBody)) !== null) {
     const num = parseInt(match[1], 10);
-    // Only include if it looks like an issue number (not too high)
     if (num < 100000) {
       issues.add(num);
     }
@@ -223,9 +189,6 @@ export function extractIssueNumbers(prBody: string): number[] {
   return Array.from(issues);
 }
 
-/**
- * Fetch an issue from GitHub
- */
 export async function fetchIssue(owner: string, repo: string, issueNumber: number): Promise<IssueContext | null> {
   try {
     const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${issueNumber}`;
@@ -239,12 +202,10 @@ export async function fetchIssue(owner: string, repo: string, issueNumber: numbe
       pull_request?: unknown;
     };
 
-    // Skip if this is actually a PR
     if (issue.pull_request) {
       return null;
     }
 
-    // Fetch issue comments
     const comments = await fetchIssueComments(owner, repo, issueNumber);
 
     return {
@@ -263,9 +224,6 @@ export async function fetchIssue(owner: string, repo: string, issueNumber: numbe
   }
 }
 
-/**
- * Fetch issue comments
- */
 async function fetchIssueComments(owner: string, repo: string, issueNumber: number): Promise<Comment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${issueNumber}/comments?per_page=${cfg.perPage}`;
@@ -291,14 +249,10 @@ async function fetchIssueComments(owner: string, repo: string, issueNumber: numb
     }));
 }
 
-/**
- * Fetch multiple issues
- */
 export async function fetchIssues(owner: string, repo: string, issueNumbers: number[]): Promise<IssueContext[]> {
   const issues: IssueContext[] = [];
   const cfg = github();
 
-  // Fetch issues in parallel (but limit concurrency)
   for (let i = 0; i < issueNumbers.length; i += cfg.batchSize) {
     const batch = issueNumbers.slice(i, i + cfg.batchSize);
     const results = await Promise.all(
@@ -312,9 +266,6 @@ export async function fetchIssues(owner: string, repo: string, issueNumbers: num
   return issues;
 }
 
-/**
- * Check if a username looks like a bot
- */
 function isBot(username: string | undefined | null): boolean {
   if (!username) return false;
   const botPatterns = [

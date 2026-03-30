@@ -156,9 +156,6 @@ wde src/file.ts:42
 
 # Local only - skip GitHub entirely, works offline
 wde src/file.ts:42 --local
-
-# Explicit GitHub fetch even without token (public repos)
-wde src/file.ts:42 --github
 ```
 
 **No auth? No problem.** The tool degrades gracefully — you still get explanations based on commit history and diffs.
@@ -279,7 +276,7 @@ wde src/file.ts:50 --provider openai
 wde src/file.ts:50 --provider ollama
 
 # Use a different model
-wde src/file.ts:50 --model claude-haiku-4-5
+wde src/file.ts:50 --model claude-haiku-4-20250514
 wde src/file.ts:50 --provider openai --model gpt-4o-mini
 ```
 
@@ -301,7 +298,8 @@ wde src/file.ts:50 --provider openai --model gpt-4o-mini
 | Command | Description |
 |---------|-------------|
 | `wde auth` | Interactive setup for API keys and GitHub token |
-| `wde status` | Check credential status (coming soon) |
+| `wde auth --status` | Check current credential status |
+| `wde auth --logout` | Clear all stored credentials |
 
 ---
 

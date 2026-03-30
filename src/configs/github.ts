@@ -1,8 +1,3 @@
-/**
- * GitHub API Configuration
- * Operational settings only - credentials are stored in system keychain
- */
-
 export interface GitHubConfig {
   apiBase: string;
   userAgent: string;
@@ -13,9 +8,6 @@ export interface GitHubConfig {
   batchSize: number;
 }
 
-/**
- * Load GitHub configuration from environment
- */
 export function loadGitHubConfig(): GitHubConfig {
   return {
     apiBase: process.env.GITHUB_API_BASE ?? 'https://api.github.com',

@@ -55,9 +55,17 @@ const authCommand = defineCommand({
       description: 'Show current authentication status',
       default: false,
     },
+    logout: {
+      type: 'boolean',
+      description: 'Clear all stored credentials',
+      default: false,
+    },
   },
   async run({ args }) {
-    if (args.status) {
+    if (args.logout) {
+      const { clearAuth } = await import('./commands/auth');
+      await clearAuth();
+    } else if (args.status) {
       await showAuthStatus();
     } else {
       await runAuthFlow();
