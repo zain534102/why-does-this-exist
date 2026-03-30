@@ -1,5 +1,6 @@
 import type { AIProvider, ProviderConfig } from './types';
 import { AIError, ConfigError } from '../errors';
+import { getApiKey } from '../config-manager';
 
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant';
@@ -18,19 +19,23 @@ interface OpenAIResponse {
 export class OpenAIProvider implements AIProvider {
   name = 'OpenAI (GPT)';
   private config: ProviderConfig;
+  private resolvedApiKey: string | null = null;
 
   constructor(config: ProviderConfig) {
     this.config = config;
   }
 
-  private getApiKey(): string {
-    const apiKey = this.config.apiKey || process.env.OPENAI_API_KEY;
+  private async resolveApiKey(): Promise<string> {
+    if (this.resolvedApiKey) return this.resolvedApiKey;
+
+    const apiKey = this.config.apiKey || await getApiKey('openai');
     if (!apiKey) {
       throw new ConfigError(
         'OpenAI API key not configured.\n' +
         'Run `wde auth` to set up authentication.'
       );
     }
+    this.resolvedApiKey = apiKey;
     return apiKey;
   }
 
@@ -52,7 +57,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async validate(): Promise<{ valid: boolean; error?: string }> {
-    const apiKey = this.config.apiKey || process.env.OPENAI_API_KEY;
+    const apiKey = this.config.apiKey || await getApiKey('openai');
     if (!apiKey) {
       return { valid: false, error: 'API key not configured' };
     }
@@ -71,7 +76,7 @@ export class OpenAIProvider implements AIProvider {
     model: string,
     onChunk: (chunk: string) => void
   ): Promise<string> {
-    const apiKey = this.getApiKey();
+    const apiKey = await this.resolveApiKey();
     const baseUrl = this.getBaseUrl();
 
     const messages: OpenAIMessage[] = [
@@ -142,7 +147,7 @@ export class OpenAIProvider implements AIProvider {
     userPrompt: string,
     model: string
   ): Promise<string> {
-    const apiKey = this.getApiKey();
+    const apiKey = await this.resolveApiKey();
     const baseUrl = this.getBaseUrl();
 
     const messages: OpenAIMessage[] = [

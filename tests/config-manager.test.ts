@@ -1,10 +1,4 @@
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import { join } from 'path';
-import { tmpdir } from 'os';
-import { mkdir, rm, writeFile } from 'fs/promises';
-
-// We need to mock the config path for testing
-// Since the module uses homedir(), we'll test the logic separately
 
 describe('config-manager', () => {
   describe('UserConfig interface', () => {
@@ -13,7 +7,6 @@ describe('config-manager', () => {
       const config = await loadUserConfig();
 
       expect(config).toHaveProperty('ai');
-      expect(config).toHaveProperty('github');
       expect(config).toHaveProperty('preferences');
       expect(config.ai).toHaveProperty('provider');
     });
@@ -24,12 +17,6 @@ describe('config-manager', () => {
       const { loadUserConfig } = await import('../src/config-manager');
       const config = await loadUserConfig();
       expect(config.ai.provider).toBe('anthropic');
-    });
-
-    it('should have empty github config by default', async () => {
-      const { loadUserConfig } = await import('../src/config-manager');
-      const config = await loadUserConfig();
-      expect(config.github.token).toBeUndefined();
     });
   });
 
@@ -52,20 +39,111 @@ describe('config-manager', () => {
 
     it('should return true if ANTHROPIC_API_KEY is set', async () => {
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test123';
-      // Re-import to pick up env changes
       delete require.cache[require.resolve('../src/config-manager')];
       const { isConfigured } = await import('../src/config-manager');
       const result = await isConfigured();
       expect(result).toBe(true);
     });
 
-    it('should return true for ollama without API key', async () => {
-      delete process.env.ANTHROPIC_API_KEY;
-      delete process.env.OPENAI_API_KEY;
-      // This test would need to modify the config file
-      // For now, we just test the function exists
+    it('should return function for isConfigured', async () => {
       const { isConfigured } = await import('../src/config-manager');
       expect(typeof isConfigured).toBe('function');
+    });
+  });
+
+  describe('credential functions', () => {
+    it('should have storeApiKey function', async () => {
+      const { storeApiKey } = await import('../src/config-manager');
+      expect(typeof storeApiKey).toBe('function');
+    });
+
+    it('should have getApiKey function', async () => {
+      const { getApiKey } = await import('../src/config-manager');
+      expect(typeof getApiKey).toBe('function');
+    });
+
+    it('should have storeGitHubToken function', async () => {
+      const { storeGitHubToken } = await import('../src/config-manager');
+      expect(typeof storeGitHubToken).toBe('function');
+    });
+
+    it('should have getGitHubToken function', async () => {
+      const { getGitHubToken } = await import('../src/config-manager');
+      expect(typeof getGitHubToken).toBe('function');
+    });
+  });
+
+  describe('getCredentialStatus', () => {
+    const originalEnv = { ...process.env };
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it('should return status object', async () => {
+      const { getCredentialStatus } = await import('../src/config-manager');
+      const status = await getCredentialStatus();
+
+      expect(status).toHaveProperty('anthropic');
+      expect(status).toHaveProperty('openai');
+      expect(status).toHaveProperty('github');
+      expect(status).toHaveProperty('secureStorage');
+    });
+
+    it('should detect env var for anthropic', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+      delete require.cache[require.resolve('../src/config-manager')];
+      const { getCredentialStatus } = await import('../src/config-manager');
+      const status = await getCredentialStatus();
+      expect(status.anthropic).toBe(true);
+    });
+
+    it('should detect env var for github', async () => {
+      process.env.GITHUB_TOKEN = 'ghp_test';
+      delete require.cache[require.resolve('../src/config-manager')];
+      const { getCredentialStatus } = await import('../src/config-manager');
+      const status = await getCredentialStatus();
+      expect(status.github).toBe(true);
+    });
+  });
+
+  describe('getApiKey with env override', () => {
+    const originalEnv = { ...process.env };
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it('should return env var for anthropic', async () => {
+      process.env.ANTHROPIC_API_KEY = 'sk-ant-from-env';
+      delete require.cache[require.resolve('../src/config-manager')];
+      const { getApiKey } = await import('../src/config-manager');
+      const key = await getApiKey('anthropic');
+      expect(key).toBe('sk-ant-from-env');
+    });
+
+    it('should return env var for openai', async () => {
+      process.env.OPENAI_API_KEY = 'sk-from-env';
+      delete require.cache[require.resolve('../src/config-manager')];
+      const { getApiKey } = await import('../src/config-manager');
+      const key = await getApiKey('openai');
+      expect(key).toBe('sk-from-env');
+    });
+  });
+
+  describe('getGitHubToken with env override', () => {
+    const originalEnv = { ...process.env };
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it('should return env var', async () => {
+      process.env.GITHUB_TOKEN = 'ghp_from_env';
+      delete require.cache[require.resolve('../src/config-manager')];
+      const { getGitHubToken } = await import('../src/config-manager');
+      const token = await getGitHubToken();
+      expect(token).toBe('ghp_from_env');
     });
   });
 });

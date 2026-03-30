@@ -1,5 +1,14 @@
 import pc from 'picocolors';
-import { loadUserConfig, saveUserConfig, getConfigPath } from '../config-manager';
+import {
+  loadUserConfig,
+  saveUserConfig,
+  getConfigPath,
+  storeApiKey,
+  storeGitHubToken,
+  getCredentialStatus,
+  isSecureStorageAvailable,
+  clearConfig,
+} from '../config-manager';
 import { getSupportedProviders, getProvider, type ProviderType } from '../ai-providers';
 
 const isInteractive = process.stdout.isTTY;
@@ -45,8 +54,6 @@ async function promptSelect(
  * Prompt for a secret (API key)
  */
 async function promptSecret(question: string): Promise<string> {
-  // Note: In a real implementation, we'd hide the input
-  // Bun doesn't have built-in hidden input, so we'll just prompt normally
   const answer = await prompt(question);
   return answer.trim();
 }
@@ -57,8 +64,9 @@ async function promptSecret(question: string): Promise<string> {
 export async function runAuthFlow(): Promise<void> {
   if (!isInteractive) {
     console.error(pc.red('Error: Auth command requires an interactive terminal.'));
-    console.error('Set environment variables directly or edit the config file:');
-    console.error(`  ${pc.dim(getConfigPath())}`);
+    console.error('Set environment variables directly:');
+    console.error('  export ANTHROPIC_API_KEY=sk-ant-...');
+    console.error('  export GITHUB_TOKEN=ghp_...');
     process.exit(1);
   }
 
@@ -66,6 +74,16 @@ export async function runAuthFlow(): Promise<void> {
   console.log(pc.bold(pc.cyan('━━━ wde auth ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')));
   console.log('');
   console.log('Let\'s set up wde to analyze your code!');
+  console.log('');
+
+  // Check if secure storage is available
+  const secureAvailable = await isSecureStorageAvailable();
+  if (secureAvailable) {
+    console.log(pc.green('✓') + ' Secure storage available (system keychain)');
+  } else {
+    console.log(pc.yellow('⚠') + ' System keychain not available');
+    console.log(pc.dim('  Credentials will be stored in environment variables only'));
+  }
   console.log('');
 
   const config = await loadUserConfig();
@@ -80,13 +98,25 @@ export async function runAuthFlow(): Promise<void> {
   config.ai.provider = providerChoice;
 
   // Step 2: Configure the provider
+  let apiKeyStored = false;
+
   if (providerChoice === 'anthropic') {
     console.log('');
     console.log(pc.dim('Get your API key from: https://console.anthropic.com/settings/keys'));
     console.log('');
     const apiKey = await promptSecret('Enter your Anthropic API key: ');
     if (apiKey) {
-      config.ai.apiKey = apiKey;
+      if (secureAvailable) {
+        apiKeyStored = await storeApiKey('anthropic', apiKey);
+        if (apiKeyStored) {
+          console.log(pc.green('✓') + ' API key stored in system keychain');
+        }
+      }
+      if (!apiKeyStored) {
+        console.log('');
+        console.log(pc.yellow('Add this to your shell profile (~/.bashrc, ~/.zshrc):'));
+        console.log(pc.cyan(`  export ANTHROPIC_API_KEY="${apiKey}"`));
+      }
     }
   } else if (providerChoice === 'openai') {
     console.log('');
@@ -94,30 +124,45 @@ export async function runAuthFlow(): Promise<void> {
     console.log('');
     const apiKey = await promptSecret('Enter your OpenAI API key: ');
     if (apiKey) {
-      config.ai.apiKey = apiKey;
+      if (secureAvailable) {
+        apiKeyStored = await storeApiKey('openai', apiKey);
+        if (apiKeyStored) {
+          console.log(pc.green('✓') + ' API key stored in system keychain');
+        }
+      }
+      if (!apiKeyStored) {
+        console.log('');
+        console.log(pc.yellow('Add this to your shell profile (~/.bashrc, ~/.zshrc):'));
+        console.log(pc.cyan(`  export OPENAI_API_KEY="${apiKey}"`));
+      }
     }
   } else if (providerChoice === 'ollama') {
     console.log('');
-    console.log(pc.dim('Ollama runs locally - no API key needed!'));
+    console.log(pc.green('✓') + ' Ollama runs locally - no API key needed!');
     console.log(pc.dim('Make sure Ollama is running: ollama serve'));
     console.log('');
     const host = await prompt(`Ollama host (${pc.dim('press enter for localhost')}): `);
     if (host) {
       config.ai.ollamaHost = host;
     }
+    apiKeyStored = true; // No key needed
   }
 
   // Step 3: Validate the provider
-  console.log('');
-  console.log('Validating configuration...');
-  const provider = getProvider(providerChoice, { apiKey: config.ai.apiKey, baseUrl: config.ai.ollamaHost });
-  const validation = await provider.validate();
+  if (apiKeyStored || providerChoice === 'ollama') {
+    console.log('');
+    console.log('Validating configuration...');
+    const provider = getProvider(providerChoice, {
+      apiKey: providerChoice !== 'ollama' ? await promptSecret('') : undefined,
+      baseUrl: config.ai.ollamaHost,
+    });
+    const validation = await provider.validate();
 
-  if (!validation.valid) {
-    console.log(pc.yellow(`⚠ Warning: ${validation.error}`));
-    console.log(pc.dim('You can still save and fix this later.'));
-  } else {
-    console.log(pc.green('✓ Provider configured successfully!'));
+    if (!validation.valid && providerChoice !== 'ollama') {
+      console.log(pc.yellow(`⚠ Warning: ${validation.error}`));
+    } else if (validation.valid) {
+      console.log(pc.green('✓') + ' Provider configured successfully!');
+    }
   }
 
   // Step 4: GitHub token (optional)
@@ -128,15 +173,29 @@ export async function runAuthFlow(): Promise<void> {
   console.log('');
   const githubToken = await promptSecret(`GitHub token (${pc.dim('press enter to skip')}): `);
   if (githubToken) {
-    config.github.token = githubToken;
+    if (secureAvailable) {
+      const stored = await storeGitHubToken(githubToken);
+      if (stored) {
+        console.log(pc.green('✓') + ' GitHub token stored in system keychain');
+      } else {
+        console.log(pc.yellow('Add this to your shell profile:'));
+        console.log(pc.cyan(`  export GITHUB_TOKEN="${githubToken}"`));
+      }
+    } else {
+      console.log(pc.yellow('Add this to your shell profile:'));
+      console.log(pc.cyan(`  export GITHUB_TOKEN="${githubToken}"`));
+    }
   }
 
-  // Step 5: Save configuration
+  // Step 5: Save configuration (without credentials)
   await saveUserConfig(config);
 
   console.log('');
-  console.log(pc.green('✓ Configuration saved!'));
-  console.log(pc.dim(`  ${getConfigPath()}`));
+  console.log(pc.green('✓') + ' Configuration saved!');
+  if (secureAvailable) {
+    console.log(pc.dim('  Credentials: System keychain (secure)'));
+  }
+  console.log(pc.dim(`  Settings: ${getConfigPath()}`));
   console.log('');
   console.log('You\'re all set! Try running:');
   console.log(pc.cyan('  wde src/cli.ts:1'));
@@ -148,10 +207,19 @@ export async function runAuthFlow(): Promise<void> {
  */
 export async function showAuthStatus(): Promise<void> {
   const config = await loadUserConfig();
+  const creds = await getCredentialStatus();
 
   console.log('');
   console.log(pc.bold('Current Configuration'));
-  console.log(pc.dim(`Config file: ${getConfigPath()}`));
+  console.log('');
+
+  // Secure storage status
+  if (creds.secureStorage) {
+    console.log(`${pc.green('✓')} Secure storage: ${pc.green('System keychain')}`);
+  } else {
+    console.log(`${pc.yellow('⚠')} Secure storage: ${pc.yellow('Not available')}`);
+    console.log(pc.dim('  Using environment variables'));
+  }
   console.log('');
 
   // AI Provider
@@ -161,9 +229,11 @@ export async function showAuthStatus(): Promise<void> {
 
   if (config.ai.provider === 'ollama') {
     console.log(`  Host: ${config.ai.ollamaHost || 'localhost:11434'}`);
-  } else {
-    const hasKey = !!config.ai.apiKey;
-    console.log(`  API Key: ${hasKey ? pc.green('configured') : pc.yellow('not set')}`);
+    console.log(`  Status: ${pc.green('No API key required')}`);
+  } else if (config.ai.provider === 'anthropic') {
+    console.log(`  API Key: ${creds.anthropic ? pc.green('✓ Configured') : pc.yellow('Not set')}`);
+  } else if (config.ai.provider === 'openai') {
+    console.log(`  API Key: ${creds.openai ? pc.green('✓ Configured') : pc.yellow('Not set')}`);
   }
 
   if (config.ai.model) {
@@ -173,11 +243,14 @@ export async function showAuthStatus(): Promise<void> {
   // GitHub
   console.log('');
   console.log('GitHub:');
-  const hasGitHubToken = !!config.github.token;
-  console.log(`  Token: ${hasGitHubToken ? pc.green('configured') : pc.dim('not set (optional)')}`);
+  console.log(`  Token: ${creds.github ? pc.green('✓ Configured') : pc.dim('Not set (optional)')}`);
 
+  // Config file
+  console.log('');
+  console.log(pc.dim(`Config file: ${getConfigPath()}`));
   console.log('');
   console.log(`Run ${pc.cyan('wde auth')} to reconfigure.`);
+  console.log(`Run ${pc.cyan('wde auth --logout')} to clear credentials.`);
   console.log('');
 }
 
@@ -185,10 +258,7 @@ export async function showAuthStatus(): Promise<void> {
  * Clear auth configuration
  */
 export async function clearAuth(): Promise<void> {
-  const config = await loadUserConfig();
-  config.ai.apiKey = undefined;
-  config.github.token = undefined;
-  await saveUserConfig(config);
-
-  console.log(pc.green('✓ Credentials cleared.'));
+  await clearConfig();
+  console.log(pc.green('✓') + ' All credentials cleared from keychain.');
+  console.log(pc.dim('Note: Environment variables are not affected.'));
 }

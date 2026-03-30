@@ -1,25 +1,36 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AIProvider, ProviderConfig } from './types';
 import { AIError, ConfigError } from '../errors';
+import { getApiKey } from '../config-manager';
 
 export class AnthropicProvider implements AIProvider {
   name = 'Anthropic (Claude)';
   private client: Anthropic | null = null;
   private config: ProviderConfig;
+  private resolvedApiKey: string | null = null;
 
   constructor(config: ProviderConfig) {
     this.config = config;
   }
 
-  private getClient(): Anthropic {
+  private async resolveApiKey(): Promise<string> {
+    if (this.resolvedApiKey) return this.resolvedApiKey;
+
+    // Check config first, then keychain/env
+    const apiKey = this.config.apiKey || await getApiKey('anthropic');
+    if (!apiKey) {
+      throw new ConfigError(
+        'Anthropic API key not configured.\n' +
+        'Run `wde auth` to set up authentication.'
+      );
+    }
+    this.resolvedApiKey = apiKey;
+    return apiKey;
+  }
+
+  private async getClient(): Promise<Anthropic> {
     if (!this.client) {
-      const apiKey = this.config.apiKey || process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new ConfigError(
-          'Anthropic API key not configured.\n' +
-          'Run `wde auth` to set up authentication.'
-        );
-      }
+      const apiKey = await this.resolveApiKey();
       this.client = new Anthropic({ apiKey });
     }
     return this.client;
@@ -38,7 +49,7 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async validate(): Promise<{ valid: boolean; error?: string }> {
-    const apiKey = this.config.apiKey || process.env.ANTHROPIC_API_KEY;
+    const apiKey = this.config.apiKey || await getApiKey('anthropic');
     if (!apiKey) {
       return { valid: false, error: 'API key not configured' };
     }
@@ -57,7 +68,7 @@ export class AnthropicProvider implements AIProvider {
     model: string,
     onChunk: (chunk: string) => void
   ): Promise<string> {
-    const client = this.getClient();
+    const client = await this.getClient();
 
     try {
       let fullResponse = '';
@@ -88,7 +99,7 @@ export class AnthropicProvider implements AIProvider {
     userPrompt: string,
     model: string
   ): Promise<string> {
-    const client = this.getClient();
+    const client = await this.getClient();
 
     try {
       const response = await client.messages.create({

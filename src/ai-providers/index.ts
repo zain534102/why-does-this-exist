@@ -37,13 +37,15 @@ export function getSupportedProviders(): Array<{ id: ProviderType; name: string;
 
 /**
  * Create an AI provider instance based on configuration
+ * API keys are retrieved from the system keychain, not the config file
  */
 export async function createProvider(overrideProvider?: ProviderType): Promise<AIProvider> {
   const config = await loadUserConfig();
   const providerType = overrideProvider || config.ai.provider;
 
+  // Note: API keys are not in config - they're in the system keychain
+  // The providers will fetch them via getApiKey() when needed
   const providerConfig: ProviderConfig = {
-    apiKey: config.ai.apiKey,
     baseUrl: config.ai.ollamaHost,
     model: config.ai.model,
   };

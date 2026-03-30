@@ -1,21 +1,44 @@
 import type { PRContext, IssueContext, Comment, ReviewComment } from './types';
 import { GitHubError } from './errors';
-import { github, hasGitHubToken } from './configs';
+import { github } from './configs';
+import { getGitHubToken } from './config-manager';
 
 type GitHubHeaders = Record<string, string>;
+
+// Cached token to avoid repeated keychain lookups
+let cachedToken: string | null | undefined = undefined;
+
+/**
+ * Get GitHub token (from keychain or env)
+ */
+async function resolveToken(): Promise<string | null> {
+  if (cachedToken === undefined) {
+    cachedToken = await getGitHubToken();
+  }
+  return cachedToken;
+}
+
+/**
+ * Check if GitHub token is available
+ */
+async function hasToken(): Promise<boolean> {
+  return !!(await resolveToken());
+}
 
 /**
  * Get headers for GitHub API requests
  */
-function getHeaders(): GitHubHeaders {
+async function getHeaders(): Promise<GitHubHeaders> {
   const cfg = github();
+  const token = await resolveToken();
+
   const headers: GitHubHeaders = {
     'Accept': 'application/vnd.github.v3+json',
     'User-Agent': cfg.userAgent,
   };
 
-  if (cfg.token) {
-    headers['Authorization'] = `Bearer ${cfg.token}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   return headers;
@@ -38,9 +61,9 @@ async function handleResponse(response: Response): Promise<unknown> {
 
   if (!response.ok) {
     if (response.status === 404) {
-      if (!hasGitHubToken()) {
+      if (!(await hasToken())) {
         throw new GitHubError(
-          'Resource not found. If this is a private repo, set GITHUB_TOKEN environment variable.',
+          'Resource not found. If this is a private repo, run `wde auth` to set up GitHub token.',
           404
         );
       }
@@ -49,8 +72,9 @@ async function handleResponse(response: Response): Promise<unknown> {
 
     if (response.status === 403 && rateLimitRemaining === 0) {
       const resetTime = rateLimitReset.toLocaleTimeString();
+      const hasGitHubToken = await hasToken();
       throw new GitHubError(
-        `GitHub API rate limit exceeded. Resets at ${resetTime}.${!hasGitHubToken() ? ' Set GITHUB_TOKEN for higher limits.' : ''}`,
+        `GitHub API rate limit exceeded. Resets at ${resetTime}.${!hasGitHubToken ? ' Run `wde auth` to set up GitHub token.' : ''}`,
         403,
         rateLimitRemaining,
         rateLimitReset
@@ -77,7 +101,7 @@ async function handleResponse(response: Response): Promise<unknown> {
 export async function fetchPR(owner: string, repo: string, prNumber: number): Promise<PRContext | null> {
   try {
     const url = `${getApiBase()}/repos/${owner}/${repo}/pulls/${prNumber}`;
-    const response = await fetch(url, { headers: getHeaders() });
+    const response = await fetch(url, { headers: await getHeaders() });
     const pr = await handleResponse(response) as {
       number: number;
       title: string;
@@ -115,7 +139,7 @@ export async function fetchPR(owner: string, repo: string, prNumber: number): Pr
 async function fetchReviewComments(owner: string, repo: string, prNumber: number): Promise<ReviewComment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=${cfg.perPage}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getHeaders() });
   const data = await handleResponse(response) as Array<{
     id: number;
     body: string;
@@ -144,7 +168,7 @@ async function fetchReviewComments(owner: string, repo: string, prNumber: number
 async function fetchPRComments(owner: string, repo: string, prNumber: number): Promise<Comment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=${cfg.perPage}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getHeaders() });
   const data = await handleResponse(response) as Array<{
     id: number;
     body: string;
@@ -205,7 +229,7 @@ export function extractIssueNumbers(prBody: string): number[] {
 export async function fetchIssue(owner: string, repo: string, issueNumber: number): Promise<IssueContext | null> {
   try {
     const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${issueNumber}`;
-    const response = await fetch(url, { headers: getHeaders() });
+    const response = await fetch(url, { headers: await getHeaders() });
     const issue = await handleResponse(response) as {
       number: number;
       title: string;
@@ -245,7 +269,7 @@ export async function fetchIssue(owner: string, repo: string, issueNumber: numbe
 async function fetchIssueComments(owner: string, repo: string, issueNumber: number): Promise<Comment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${issueNumber}/comments?per_page=${cfg.perPage}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getHeaders() });
   const data = await handleResponse(response) as Array<{
     id: number;
     body: string;
