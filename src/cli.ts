@@ -5,7 +5,9 @@ import { version, description } from '../package.json';
 import { getBlame, extractPRNumber, findFunctionLine, getRepoInfo } from './blame';
 import { fetchPR, fetchIssues, extractIssueNumbers } from './github';
 import { buildContext, buildSystemPrompt, getVerboseContext } from './context-builder';
-import { streamExplanation, getExplanation } from './ai';
+import { createProvider } from './ai-providers';
+import { isConfigured } from './config-manager';
+import { runAuthFlow, showAuthStatus } from './commands/auth';
 import {
   printHeader,
   printFooter,
@@ -20,11 +22,9 @@ import {
 } from './renderer';
 import { WdeError, GitError } from './errors';
 import type { DecisionTrail } from './types';
-import { anthropic } from './configs';
 
 /**
  * Parse target string into file and line number
- * Supports: file.ts:42, file.ts
  */
 function parseTarget(target: string): { file: string; line: number | null } {
   const colonIndex = target.lastIndexOf(':');
@@ -43,11 +43,37 @@ function parseTarget(target: string): { file: string; line: number | null } {
   return { file, line };
 }
 
+// Auth subcommand
+const authCommand = defineCommand({
+  meta: {
+    name: 'auth',
+    description: 'Configure authentication for AI providers and GitHub',
+  },
+  args: {
+    status: {
+      type: 'boolean',
+      description: 'Show current authentication status',
+      default: false,
+    },
+  },
+  async run({ args }) {
+    if (args.status) {
+      await showAuthStatus();
+    } else {
+      await runAuthFlow();
+    }
+  },
+});
+
+// Main command
 const main = defineCommand({
   meta: {
     name: 'wde',
     version,
     description,
+  },
+  subCommands: {
+    auth: authCommand,
   },
   args: {
     target: {
@@ -73,9 +99,13 @@ const main = defineCommand({
     },
     model: {
       type: 'string',
-      description: 'Claude model to use',
-      default: anthropic().defaultModel,
+      description: 'AI model to use (provider-specific)',
       alias: 'm',
+    },
+    provider: {
+      type: 'string',
+      description: 'AI provider: anthropic, openai, or ollama',
+      alias: 'p',
     },
     local: {
       type: 'boolean',
@@ -84,14 +114,25 @@ const main = defineCommand({
     },
   },
   async run({ args }) {
-    const { target, fn, json, verbose, model, local } = args;
+    const { target, fn, json, verbose, model, provider, local } = args;
 
     // Show usage if no target provided
     if (!target && !fn) {
       console.log('Usage: wde <file:line> [options]');
       console.log('       wde <file> --fn <functionName> [options]');
+      console.log('       wde auth    # Configure authentication');
       console.log('\nRun `wde --help` for more information.');
       process.exit(1);
+    }
+
+    // Check if configured
+    const configured = await isConfigured();
+    if (!configured) {
+      console.log('');
+      console.log('wde is not configured yet. Let\'s set it up!');
+      console.log('');
+      await runAuthFlow();
+      return;
     }
 
     try {
@@ -104,7 +145,6 @@ const main = defineCommand({
         file = parsed.file;
 
         if (fn) {
-          // If both target and --fn provided, use target as file and lookup function
           line = await findFunctionLine(file, fn);
         } else if (parsed.line) {
           line = parsed.line;
@@ -151,7 +191,6 @@ const main = defineCommand({
           pr = await fetchPR(repoInfo.owner, repoInfo.repo, prNumber);
           prSpinner?.stop();
 
-          // Step 4: Extract and fetch linked issues
           if (pr) {
             const issueNumbers = extractIssueNumbers(pr.body);
             if (issueNumbers.length > 0) {
@@ -174,7 +213,7 @@ const main = defineCommand({
         repo: repoInfo.repo,
       };
 
-      // Step 5: Build context
+      // Step 4: Build context
       const context = buildContext(trail);
       const systemPrompt = buildSystemPrompt();
 
@@ -183,25 +222,31 @@ const main = defineCommand({
         printVerbose(getVerboseContext(trail, context));
       }
 
-      // Step 6: Get AI explanation
+      // Step 5: Get AI explanation
+      const aiProvider = await createProvider(provider as 'anthropic' | 'openai' | 'ollama' | undefined);
+      const modelToUse = model || aiProvider.getDefaultModel();
       let explanation: string;
 
       if (json) {
-        // Non-streaming for JSON output
-        explanation = await getExplanation(systemPrompt, context, model);
+        explanation = await aiProvider.getResponse(
+          systemPrompt,
+          `Based on the following context, explain why this code exists:\n\n${context}`,
+          modelToUse
+        );
         outputJSON(trail, explanation);
       } else {
-        // Streaming for interactive output
-        const aiSpinner = createSpinner('Asking Claude...');
+        const aiSpinner = createSpinner(`Asking ${aiProvider.name}...`);
         aiSpinner.stop();
 
         const stream = startExplanationStream();
-        explanation = await streamExplanation(systemPrompt, context, model, (chunk) => {
-          stream.write(chunk);
-        });
+        explanation = await aiProvider.streamResponse(
+          systemPrompt,
+          `Based on the following context, explain why this code exists:\n\n${context}`,
+          modelToUse,
+          (chunk) => stream.write(chunk)
+        );
         stream.end();
 
-        // Print sources
         printSources(trail);
         printFooter();
       }
@@ -215,7 +260,6 @@ const main = defineCommand({
         process.exit(1);
       }
 
-      // Unexpected error
       const message = error instanceof Error ? error.message : String(error);
       if (json) {
         console.log(JSON.stringify({ error: message }, null, 2));
