@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
-    "citty": "^0.1.6",
+    "citty": "^0.2.1",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
