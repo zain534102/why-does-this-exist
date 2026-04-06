@@ -21,7 +21,7 @@
     "@anthropic-ai/sdk": "^0.80.0",
     "citty": "0.2.1",
     "keytar": "^7.9.0",
-    "ollama": "^0.5.11",
+    "ollama": "^0.6.3",
     "openai": "^4.77.0",
     "picocolors": "^1.1.1"
   },
