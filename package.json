@@ -22,7 +22,7 @@
     "citty": "0.2.1",
     "keytar": "^7.9.0",
     "ollama": "^0.5.11",
-    "openai": "^4.77.0",
+    "openai": "^6.33.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
