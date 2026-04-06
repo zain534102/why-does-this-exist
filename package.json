@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
-    "citty": "0.2.1",
+    "citty": "0.2.2",
     "keytar": "^7.9.0",
     "ollama": "^0.5.11",
     "openai": "^4.77.0",
