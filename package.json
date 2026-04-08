@@ -1,6 +1,6 @@
 {
   "name": "why-does-this-exist",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A CLI tool that traces git blame → PRs → issues → reviews and explains legacy code decisions in plain English using AI",
   "type": "module",
   "bin": {
