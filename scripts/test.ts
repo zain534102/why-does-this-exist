@@ -6,21 +6,25 @@
  * it from polluting other test files.
  */
 
+// Bun's mock.module() permanently replaces a module for the entire process.
+// Tests that mock internal modules must be isolated from tests that need the
+// real version. Group by which internal modules they mock:
 const batches = [
-  // Batch 1: tests that use mock.module on internal modules (must run isolated)
-  ['tests/ai-providers.test.ts', 'tests/github.test.ts'],
-  // Batch 2: everything else
+  // Batch 1: mocks config-manager
+  ['tests/ai-providers.test.ts', 'tests/auth.test.ts', 'tests/github.test.ts'],
+  // Batch 2: mocks secure-storage
+  ['tests/config-manager.test.ts'],
+  // Batch 3: mocks file-search
+  ['tests/fuzzy-picker.test.ts'],
+  // Batch 4: no internal module mocks (safe to run together)
   [
     'tests/blame.test.ts',
     'tests/cli.test.ts',
-    'tests/config-manager.test.ts',
     'tests/configs.test.ts',
     'tests/context-builder.test.ts',
     'tests/errors.test.ts',
     'tests/types.test.ts',
-    'tests/fuzzy-picker.test.ts',
     'tests/renderer.test.ts',
-    'tests/auth.test.ts',
     'tests/secure-storage.test.ts',
     'tests/file-search.test.ts',
   ],
@@ -47,11 +51,11 @@ for (const files of batches) {
 
   if (code !== 0) failed = true;
 
-  // Parse summary from stderr: " N pass", " N fail", " N skip", "across N files"
+  // Parse summary from stderr: " N pass", " N fail", " N skip", "across N file(s)"
   const passMatch = stderr.match(/(\d+) pass/);
   const failMatch = stderr.match(/(\d+) fail/);
   const skipMatch = stderr.match(/(\d+) skip/);
-  const filesMatch = stderr.match(/across (\d+) files/);
+  const filesMatch = stderr.match(/across (\d+) file/);
 
   if (passMatch) totalPass += parseInt(passMatch[1]);
   if (failMatch) totalFail += parseInt(failMatch[1]);
