@@ -36,12 +36,47 @@ async function ensureConfigDir(): Promise<void> {
   await mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
 }
 
+const VALID_PROVIDERS = ['anthropic', 'openai', 'ollama'];
+
+function isValidConfig(obj: unknown): obj is Partial<UserConfig> {
+  if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) return false;
+  const o = obj as Record<string, unknown>;
+
+  if (o.ai !== undefined) {
+    if (typeof o.ai !== 'object' || o.ai === null || Array.isArray(o.ai)) return false;
+    const ai = o.ai as Record<string, unknown>;
+    if (ai.provider !== undefined && !VALID_PROVIDERS.includes(ai.provider as string)) return false;
+    if (ai.model !== undefined && typeof ai.model !== 'string') return false;
+    if (ai.ollamaHost !== undefined) {
+      if (typeof ai.ollamaHost !== 'string') return false;
+      try {
+        const parsed = new URL(ai.ollamaHost);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+        if (parsed.username || parsed.password) return false;
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  if (o.preferences !== undefined) {
+    if (typeof o.preferences !== 'object' || o.preferences === null || Array.isArray(o.preferences)) return false;
+  }
+
+  return true;
+}
+
 export async function loadUserConfig(): Promise<UserConfig> {
   try {
     const file = Bun.file(CONFIG_FILE);
     if (await file.exists()) {
       const content = await file.json();
-      return { ...DEFAULT_CONFIG, ...content };
+      if (isValidConfig(content)) {
+        return {
+          ai: { ...DEFAULT_CONFIG.ai, ...(content.ai ?? {}) },
+          preferences: { ...DEFAULT_CONFIG.preferences, ...(content.preferences ?? {}) },
+        };
+      }
     }
   } catch {
     // Config doesn't exist or is invalid
@@ -73,19 +108,27 @@ export async function storeApiKey(
   provider: 'anthropic' | 'openai',
   apiKey: string
 ): Promise<boolean> {
-  const key = provider === 'anthropic' ? 'anthropic-api-key' : 'openai-api-key';
-  return storeCredential(key, apiKey);
+  return storeCredential(CREDENTIAL_KEY_MAP[provider], apiKey);
 }
+
+const ENV_VAR_MAP = {
+  anthropic: 'ANTHROPIC_API_KEY',
+  openai: 'OPENAI_API_KEY',
+} as const;
+
+const CREDENTIAL_KEY_MAP = {
+  anthropic: 'anthropic-api-key',
+  openai: 'openai-api-key',
+} as const;
 
 export async function getApiKey(
   provider: 'anthropic' | 'openai'
 ): Promise<string | null> {
-  const envVar = provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY';
+  const envVar = ENV_VAR_MAP[provider];
   if (process.env[envVar]) {
     return process.env[envVar]!;
   }
-  const key = provider === 'anthropic' ? 'anthropic-api-key' : 'openai-api-key';
-  return getCredential(key);
+  return getCredential(CREDENTIAL_KEY_MAP[provider]);
 }
 
 export async function storeGitHubToken(token: string): Promise<boolean> {
@@ -100,8 +143,7 @@ export async function getGitHubToken(): Promise<string | null> {
 }
 
 export async function deleteApiKey(provider: 'anthropic' | 'openai'): Promise<boolean> {
-  const key = provider === 'anthropic' ? 'anthropic-api-key' : 'openai-api-key';
-  return deleteCredential(key);
+  return deleteCredential(CREDENTIAL_KEY_MAP[provider]);
 }
 
 export async function deleteGitHubToken(): Promise<boolean> {
