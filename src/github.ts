@@ -14,6 +14,10 @@ async function resolveToken(): Promise<string | null> {
   return cachedToken;
 }
 
+export function invalidateTokenCache(): void {
+  cachedToken = undefined;
+}
+
 async function hasToken(): Promise<boolean> {
   return !!(await resolveToken());
 }
@@ -36,6 +40,23 @@ async function getHeaders(): Promise<GitHubHeaders> {
 
 function getApiBase(): string {
   return github().apiBase;
+}
+
+const REQUEST_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(url: string, headers: GitHubHeaders): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { headers, signal: controller.signal });
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new GitHubError('GitHub API request timed out', 408);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function handleResponse(response: Response): Promise<unknown> {
@@ -72,8 +93,7 @@ async function handleResponse(response: Response): Promise<unknown> {
       );
     }
 
-    const body = await response.text();
-    throw new GitHubError(`GitHub API error: ${response.status} - ${body}`, response.status);
+    throw new GitHubError(`GitHub API error (${response.status}). Check token permissions and try again.`, response.status);
   }
 
   return response.json();
@@ -82,7 +102,7 @@ async function handleResponse(response: Response): Promise<unknown> {
 export async function fetchPR(owner: string, repo: string, prNumber: number): Promise<PRContext | null> {
   try {
     const url = `${getApiBase()}/repos/${owner}/${repo}/pulls/${prNumber}`;
-    const response = await fetch(url, { headers: await getHeaders() });
+    const response = await fetchWithTimeout(url, await getHeaders());
     const pr = await handleResponse(response) as {
       number: number;
       title: string;
@@ -114,7 +134,7 @@ export async function fetchPR(owner: string, repo: string, prNumber: number): Pr
 async function fetchReviewComments(owner: string, repo: string, prNumber: number): Promise<ReviewComment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=${cfg.perPage}`;
-  const response = await fetch(url, { headers: await getHeaders() });
+  const response = await fetchWithTimeout(url, await getHeaders());
   const data = await handleResponse(response) as Array<{
     id: number;
     body: string;
@@ -140,7 +160,7 @@ async function fetchReviewComments(owner: string, repo: string, prNumber: number
 async function fetchPRComments(owner: string, repo: string, prNumber: number): Promise<Comment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=${cfg.perPage}`;
-  const response = await fetch(url, { headers: await getHeaders() });
+  const response = await fetchWithTimeout(url, await getHeaders());
   const data = await handleResponse(response) as Array<{
     id: number;
     body: string;
@@ -192,7 +212,7 @@ export function extractIssueNumbers(prBody: string): number[] {
 export async function fetchIssue(owner: string, repo: string, issueNumber: number): Promise<IssueContext | null> {
   try {
     const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${issueNumber}`;
-    const response = await fetch(url, { headers: await getHeaders() });
+    const response = await fetchWithTimeout(url, await getHeaders());
     const issue = await handleResponse(response) as {
       number: number;
       title: string;
@@ -227,7 +247,7 @@ export async function fetchIssue(owner: string, repo: string, issueNumber: numbe
 async function fetchIssueComments(owner: string, repo: string, issueNumber: number): Promise<Comment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${issueNumber}/comments?per_page=${cfg.perPage}`;
-  const response = await fetch(url, { headers: await getHeaders() });
+  const response = await fetchWithTimeout(url, await getHeaders());
   const data = await handleResponse(response) as Array<{
     id: number;
     body: string;

@@ -13,6 +13,8 @@ import { getSupportedProviders, getProvider, type ProviderType } from '../ai-pro
 
 const isInteractive = process.stdout.isTTY;
 
+const MAX_INPUT_LENGTH = 1024;
+
 /**
  * Simple readline for interactive prompts
  */
@@ -21,7 +23,11 @@ async function prompt(question: string): Promise<string> {
   const reader = Bun.stdin.stream().getReader();
   const { value } = await reader.read();
   reader.releaseLock();
-  return new TextDecoder().decode(value).trim();
+  const decoded = new TextDecoder().decode(value).trim();
+  if (decoded.length > MAX_INPUT_LENGTH) {
+    throw new Error(`Input too long (max ${MAX_INPUT_LENGTH} characters)`);
+  }
+  return decoded;
 }
 
 /**
@@ -51,11 +57,62 @@ async function promptSelect(
 }
 
 /**
- * Prompt for a secret (API key)
+ * Prompt for a secret (API key) with echo suppression
  */
 async function promptSecret(question: string): Promise<string> {
-  const answer = await prompt(question);
-  return answer.trim();
+  if (!process.stdin.setRawMode) {
+    // Fallback for non-TTY (shouldn't happen since we check isInteractive)
+    return (await prompt(question)).trim();
+  }
+
+  process.stdout.write(question);
+
+  return new Promise((resolve) => {
+    let input = '';
+    const wasRaw = process.stdin.isRaw;
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+
+    const onData = (chunk: Buffer) => {
+      const char = chunk.toString();
+      if (char === '\r' || char === '\n') {
+        process.stdin.setRawMode(wasRaw ?? false);
+        process.stdin.pause();
+        process.stdin.removeListener('data', onData);
+        process.stdout.write('\n');
+        resolve(input.trim());
+      } else if (char === '\x7f' || char === '\b') {
+        input = input.slice(0, -1);
+      } else if (char === '\x03') {
+        process.stdin.setRawMode(wasRaw ?? false);
+        process.exit(1);
+      } else if (input.length < MAX_INPUT_LENGTH) {
+        input += char;
+      }
+    };
+    process.stdin.on('data', onData);
+  });
+}
+
+/**
+ * Validate an Ollama host URL
+ */
+function validateOllamaHost(host: string): void {
+  try {
+    const url = new URL(host);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('Ollama host must use http:// or https:// scheme');
+    }
+    if (url.username || url.password) {
+      throw new Error('Ollama host must not contain credentials in the URL');
+    }
+    if (url.protocol === 'http:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+      console.log(pc.yellow('⚠ Warning: Using plain HTTP with a non-localhost address. Consider using HTTPS.'));
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('Ollama host')) throw e;
+    throw new Error(`Invalid Ollama host URL: ${host}`);
+  }
 }
 
 /**
@@ -98,7 +155,7 @@ export async function runAuthFlow(): Promise<void> {
   config.ai.provider = providerChoice;
 
   // Step 2: Configure the provider
-  let apiKeyStored = false;
+  let capturedApiKey: string | undefined;
 
   if (providerChoice === 'anthropic') {
     console.log('');
@@ -106,16 +163,18 @@ export async function runAuthFlow(): Promise<void> {
     console.log('');
     const apiKey = await promptSecret('Enter your Anthropic API key: ');
     if (apiKey) {
+      capturedApiKey = apiKey;
       if (secureAvailable) {
-        apiKeyStored = await storeApiKey('anthropic', apiKey);
-        if (apiKeyStored) {
+        const stored = await storeApiKey('anthropic', apiKey);
+        if (stored) {
           console.log(pc.green('✓') + ' API key stored in system keychain');
         }
       }
-      if (!apiKeyStored) {
+      if (!secureAvailable) {
         console.log('');
         console.log(pc.yellow('Add this to your shell profile (~/.bashrc, ~/.zshrc):'));
-        console.log(pc.cyan(`  export ANTHROPIC_API_KEY="${apiKey}"`));
+        console.log(pc.cyan('  export ANTHROPIC_API_KEY=<your-key>'));
+        console.log(pc.dim('  (paste the key you just entered)'));
       }
     }
   } else if (providerChoice === 'openai') {
@@ -124,16 +183,18 @@ export async function runAuthFlow(): Promise<void> {
     console.log('');
     const apiKey = await promptSecret('Enter your OpenAI API key: ');
     if (apiKey) {
+      capturedApiKey = apiKey;
       if (secureAvailable) {
-        apiKeyStored = await storeApiKey('openai', apiKey);
-        if (apiKeyStored) {
+        const stored = await storeApiKey('openai', apiKey);
+        if (stored) {
           console.log(pc.green('✓') + ' API key stored in system keychain');
         }
       }
-      if (!apiKeyStored) {
+      if (!secureAvailable) {
         console.log('');
         console.log(pc.yellow('Add this to your shell profile (~/.bashrc, ~/.zshrc):'));
-        console.log(pc.cyan(`  export OPENAI_API_KEY="${apiKey}"`));
+        console.log(pc.cyan('  export OPENAI_API_KEY=<your-key>'));
+        console.log(pc.dim('  (paste the key you just entered)'));
       }
     }
   } else if (providerChoice === 'ollama') {
@@ -143,17 +204,17 @@ export async function runAuthFlow(): Promise<void> {
     console.log('');
     const host = await prompt(`Ollama host (${pc.dim('press enter for localhost')}): `);
     if (host) {
+      validateOllamaHost(host);
       config.ai.ollamaHost = host;
     }
-    apiKeyStored = true; // No key needed
   }
 
-  // Step 3: Validate the provider
-  if (apiKeyStored || providerChoice === 'ollama') {
+  // Step 3: Validate the provider using the captured key (no re-prompting)
+  if (capturedApiKey || providerChoice === 'ollama') {
     console.log('');
     console.log('Validating configuration...');
     const provider = getProvider(providerChoice, {
-      apiKey: providerChoice !== 'ollama' ? await promptSecret('') : undefined,
+      apiKey: capturedApiKey,
       baseUrl: config.ai.ollamaHost,
     });
     const validation = await provider.validate();
@@ -179,11 +240,13 @@ export async function runAuthFlow(): Promise<void> {
         console.log(pc.green('✓') + ' GitHub token stored in system keychain');
       } else {
         console.log(pc.yellow('Add this to your shell profile:'));
-        console.log(pc.cyan(`  export GITHUB_TOKEN="${githubToken}"`));
+        console.log(pc.cyan('  export GITHUB_TOKEN=<your-token>'));
+        console.log(pc.dim('  (paste the token you just entered)'));
       }
     } else {
       console.log(pc.yellow('Add this to your shell profile:'));
-      console.log(pc.cyan(`  export GITHUB_TOKEN="${githubToken}"`));
+      console.log(pc.cyan('  export GITHUB_TOKEN=<your-token>'));
+      console.log(pc.dim('  (paste the token you just entered)'));
     }
   }
 

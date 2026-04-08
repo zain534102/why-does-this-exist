@@ -20,8 +20,27 @@ import {
   printFallbackInfo,
   printPlatformWarning,
 } from './renderer';
-import { WdeError, GitError } from './errors';
+import { invalidateTokenCache } from './github';
+import { WdeError, GitError, ConfigError } from './errors';
 import type { DecisionTrail } from './types';
+
+const VALID_PROVIDERS = ['anthropic', 'openai', 'ollama'] as const;
+type ValidProvider = typeof VALID_PROVIDERS[number];
+
+function validateProvider(p: string | undefined): ValidProvider | undefined {
+  if (!p) return undefined;
+  if (!(VALID_PROVIDERS as readonly string[]).includes(p)) {
+    throw new ConfigError(`Unknown provider: ${p}. Valid values: ${VALID_PROVIDERS.join(', ')}`);
+  }
+  return p as ValidProvider;
+}
+
+function validateModel(m: string | undefined): string | undefined {
+  if (!m) return undefined;
+  if (m.length > 100) throw new ConfigError('Model name too long (max 100 chars)');
+  if (!/^[a-zA-Z0-9._:/-]+$/.test(m)) throw new ConfigError('Invalid characters in model name');
+  return m;
+}
 
 /**
  * Parse target string into file and line number
@@ -140,6 +159,7 @@ const main = defineCommand({
       console.log('wde is not configured yet. Let\'s set it up!');
       console.log('');
       await runAuthFlow();
+      invalidateTokenCache();
       return;
     }
 
@@ -231,8 +251,10 @@ const main = defineCommand({
       }
 
       // Step 5: Get AI explanation
-      const aiProvider = await createProvider(provider as 'anthropic' | 'openai' | 'ollama' | undefined);
-      const modelToUse = model || aiProvider.getDefaultModel();
+      const validatedProvider = validateProvider(provider);
+      const validatedModel = validateModel(model);
+      const aiProvider = await createProvider(validatedProvider);
+      const modelToUse = validatedModel || aiProvider.getDefaultModel();
       let explanation: string;
 
       if (json) {
