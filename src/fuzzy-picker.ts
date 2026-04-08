@@ -63,8 +63,7 @@ export async function fuzzyPicker(initialQuery: string = ''): Promise<PickerResu
       // Enter — select current match
       if (key === '\r' || key === '\n') {
         if (matches.length > 0) {
-          const selected = matches[selectedIndex];
-          // Ask for line number
+          // Ask for line number (current match is matches[selectedIndex])
           enteringLine = true;
           lineInput = '';
           render();
