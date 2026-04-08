@@ -14,9 +14,9 @@
   ],
   "scripts": {
     "dev": "bun run src/cli.ts",
-    "lint": "oxlint --type-aware --fix && oxfmt --write",
+    "lint": "oxlint src/ --type-aware --fix && oxfmt --write src/",
     "test": "bun run scripts/test.ts",
-    "test:lint": "oxlint --type-aware && oxfmt --check",
+    "test:lint": "oxlint src/ --type-aware && oxfmt --check src/",
     "typecheck": "tsc --noEmit",
     "postinstall": "echo '\\n✓ wde installed! Run: wde auth\\n'"
   },
