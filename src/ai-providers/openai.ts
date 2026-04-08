@@ -27,12 +27,29 @@ export class OpenAIProvider implements AIProvider {
     return apiKey;
   }
 
+  private validateBaseUrl(url: string): void {
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new ConfigError('OpenAI baseURL must use http:// or https:// scheme');
+      }
+      if (parsed.username || parsed.password) {
+        throw new ConfigError('OpenAI baseURL must not contain credentials');
+      }
+    } catch (e) {
+      if (e instanceof ConfigError) throw e;
+      throw new ConfigError(`Invalid OpenAI baseURL: ${url}`);
+    }
+  }
+
   private async getClient(): Promise<OpenAI> {
     if (!this.client) {
       const apiKey = await this.resolveApiKey();
+      const baseURL = this.config.baseUrl;
+      if (baseURL) this.validateBaseUrl(baseURL);
       this.client = new OpenAI({
         apiKey,
-        baseURL: this.config.baseUrl || undefined,
+        baseURL: baseURL || undefined,
       });
     }
     return this.client;

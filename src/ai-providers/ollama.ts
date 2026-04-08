@@ -12,7 +12,29 @@ export class OllamaProvider implements AIProvider {
   }
 
   private getBaseUrl(): string {
-    return this.config.baseUrl || process.env.OLLAMA_HOST || 'http://localhost:11434';
+    const url = this.config.baseUrl || process.env.OLLAMA_HOST || 'http://localhost:11434';
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new ConfigError('Ollama host must use http:// or https:// scheme');
+      }
+      if (parsed.username || parsed.password) {
+        throw new ConfigError('Ollama host must not contain credentials in the URL');
+      }
+    } catch (e) {
+      if (e instanceof ConfigError) throw e;
+      throw new ConfigError(`Invalid Ollama host URL: ${url}`);
+    }
+    return url;
+  }
+
+  private getSafeUrlForDisplay(): string {
+    try {
+      const parsed = new URL(this.getBaseUrl());
+      return `${parsed.protocol}//${parsed.host}`;
+    } catch {
+      return '(invalid URL)';
+    }
   }
 
   private getClient(): Ollama {
@@ -42,9 +64,10 @@ export class OllamaProvider implements AIProvider {
       await client.list();
       return { valid: true };
     } catch {
+      const safeUrl = this.getSafeUrlForDisplay();
       return {
         valid: false,
-        error: `Could not connect to Ollama at ${this.getBaseUrl()}. Is Ollama running?`
+        error: `Could not connect to Ollama at ${safeUrl}. Is Ollama running?`
       };
     }
   }
