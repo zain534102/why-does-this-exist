@@ -1,7 +1,10 @@
 import { $ } from 'bun';
+import { resolve } from 'path';
 import type { BlameResult, RepoInfo } from './types';
 import { GitError } from './errors';
 import { app } from './configs';
+
+const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 /**
  * Parse git blame porcelain output for a specific line
@@ -38,6 +41,10 @@ export async function getBlame(file: string, line: number): Promise<BlameResult>
 
     if (!sha || sha === '0000000000000000000000000000000000000000') {
       throw new GitError(`Line ${line} in ${file} has not been committed yet (uncommitted changes)`);
+    }
+
+    if (!SHA_PATTERN.test(sha)) {
+      throw new GitError(`Invalid commit SHA from git blame: ${sha}`);
     }
 
     // Get commit message and diff
@@ -108,6 +115,16 @@ export function extractPRNumber(commitMessage: string): number | null {
  * Find line number for a function name in a file
  */
 export async function findFunctionLine(file: string, functionName: string): Promise<number> {
+  // Validate file path stays within the current directory
+  const resolved = resolve(file);
+  const cwd = process.cwd();
+  if (!resolved.startsWith(cwd + '/') && resolved !== cwd) {
+    throw new GitError(`File path escapes the current directory: ${file}`);
+  }
+  if (file.includes('\0')) {
+    throw new GitError('Invalid file path: contains null byte');
+  }
+
   try {
     const content = await Bun.file(file).text();
     const lines = content.split('\n');
