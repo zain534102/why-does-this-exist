@@ -1,15 +1,22 @@
 import { $ } from 'bun';
 import { resolve } from 'path';
+
 import type { BlameResult, RepoInfo } from './types';
-import { GitError } from './errors';
+
 import { app } from './configs';
+import { GitError } from './errors';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 /**
  * Parse git blame porcelain output for a specific line
  */
-function parseBlameOutput(output: string): { sha: string; authorName: string; authorEmail: string; authorTime: number } {
+function parseBlameOutput(output: string): {
+  sha: string;
+  authorName: string;
+  authorEmail: string;
+  authorTime: number;
+} {
   const lines = output.trim().split('\n');
   const sha = lines[0]?.split(' ')[0] ?? '';
 
@@ -40,7 +47,9 @@ export async function getBlame(file: string, line: number): Promise<BlameResult>
     const { sha, authorName, authorEmail, authorTime } = parseBlameOutput(blameOutput);
 
     if (!sha || sha === '0000000000000000000000000000000000000000') {
-      throw new GitError(`Line ${line} in ${file} has not been committed yet (uncommitted changes)`);
+      throw new GitError(
+        `Line ${line} in ${file} has not been committed yet (uncommitted changes)`,
+      );
     }
 
     if (!SHA_PATTERN.test(sha)) {
@@ -55,7 +64,9 @@ export async function getBlame(file: string, line: number): Promise<BlameResult>
     const maxDiffLines = app().maxDiffLines;
     const diffOutput = await $`git show ${sha} --format= --stat --patch`.text();
     const diffLines = diffOutput.split('\n');
-    const diff = diffLines.slice(0, maxDiffLines).join('\n') + (diffLines.length > maxDiffLines ? '\n... (truncated)' : '');
+    const diff =
+      diffLines.slice(0, maxDiffLines).join('\n') +
+      (diffLines.length > maxDiffLines ? '\n... (truncated)' : '');
 
     return {
       sha,
@@ -134,11 +145,17 @@ export async function findFunctionLine(file: string, functionName: string): Prom
       // JavaScript/TypeScript: function name(
       new RegExp(`^\\s*(export\\s+)?(async\\s+)?function\\s+${escapeRegex(functionName)}\\s*[(<]`),
       // Arrow function: const name = (
-      new RegExp(`^\\s*(export\\s+)?(const|let|var)\\s+${escapeRegex(functionName)}\\s*=\\s*(async\\s+)?[(<]`),
+      new RegExp(
+        `^\\s*(export\\s+)?(const|let|var)\\s+${escapeRegex(functionName)}\\s*=\\s*(async\\s+)?[(<]`,
+      ),
       // Method: name(
-      new RegExp(`^\\s*(public|private|protected)?\\s*(async\\s+)?${escapeRegex(functionName)}\\s*[(<]`),
+      new RegExp(
+        `^\\s*(public|private|protected)?\\s*(async\\s+)?${escapeRegex(functionName)}\\s*[(<]`,
+      ),
       // PHP: function name(
-      new RegExp(`^\\s*(public|private|protected)?\\s*(static\\s+)?function\\s+${escapeRegex(functionName)}\\s*\\(`),
+      new RegExp(
+        `^\\s*(public|private|protected)?\\s*(static\\s+)?function\\s+${escapeRegex(functionName)}\\s*\\(`,
+      ),
       // Python: def name(
       new RegExp(`^\\s*(async\\s+)?def\\s+${escapeRegex(functionName)}\\s*\\(`),
       // Ruby: def name
@@ -160,7 +177,9 @@ export async function findFunctionLine(file: string, functionName: string): Prom
     throw new GitError(`Function '${functionName}' not found in ${file}`);
   } catch (error) {
     if (error instanceof GitError) throw error;
-    throw new GitError(`Failed to read file ${file}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new GitError(
+      `Failed to read file ${file}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -190,7 +209,9 @@ export async function getRepoInfo(): Promise<RepoInfo> {
 
     // GitHub patterns
     const githubSSH = remoteUrl.match(/git@github\.com:([^/]+)\/([^.]+)(\.git)?$/);
-    const githubHTTPS = remoteUrl.match(/https:\/\/(?:[^@]+@)?github\.com\/([^/]+)\/([^.]+)(\.git)?$/);
+    const githubHTTPS = remoteUrl.match(
+      /https:\/\/(?:[^@]+@)?github\.com\/([^/]+)\/([^.]+)(\.git)?$/,
+    );
 
     if (githubSSH) {
       platform = 'github';
@@ -204,7 +225,9 @@ export async function getRepoInfo(): Promise<RepoInfo> {
 
     // GitLab patterns
     const gitlabSSH = remoteUrl.match(/git@gitlab\.com:([^/]+)\/([^.]+)(\.git)?$/);
-    const gitlabHTTPS = remoteUrl.match(/https:\/\/(?:[^@]+@)?gitlab\.com\/([^/]+)\/([^.]+)(\.git)?$/);
+    const gitlabHTTPS = remoteUrl.match(
+      /https:\/\/(?:[^@]+@)?gitlab\.com\/([^/]+)\/([^.]+)(\.git)?$/,
+    );
 
     if (gitlabSSH || gitlabHTTPS) {
       platform = 'gitlab';
@@ -217,7 +240,9 @@ export async function getRepoInfo(): Promise<RepoInfo> {
 
     // Bitbucket patterns
     const bitbucketSSH = remoteUrl.match(/git@bitbucket\.org:([^/]+)\/([^.]+)(\.git)?$/);
-    const bitbucketHTTPS = remoteUrl.match(/https:\/\/(?:[^@]+@)?bitbucket\.org\/([^/]+)\/([^.]+)(\.git)?$/);
+    const bitbucketHTTPS = remoteUrl.match(
+      /https:\/\/(?:[^@]+@)?bitbucket\.org\/([^/]+)\/([^.]+)(\.git)?$/,
+    );
 
     if (bitbucketSSH || bitbucketHTTPS) {
       platform = 'bitbucket';

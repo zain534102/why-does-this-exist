@@ -1,4 +1,5 @@
 import pc from 'picocolors';
+
 import { scoreMatch, getRepoFiles } from './file-search';
 
 const MAX_VISIBLE = 8;
@@ -131,14 +132,19 @@ export async function fuzzyPicker(initialQuery: string = ''): Promise<PickerResu
       }
     };
 
-    const handleLineInput = (key: string, charCode: number, cleanup: () => void, resolve: (r: PickerResult | null) => void) => {
+    const handleLineInput = (
+      key: string,
+      charCode: number,
+      cleanup: () => void,
+      resolve: (r: PickerResult | null) => void,
+    ) => {
       // Enter — submit line number
       if (key === '\r' || key === '\n') {
         cleanup();
         const line = parseInt(lineInput, 10);
         resolve({
           file: matches[selectedIndex],
-          line: (isNaN(line) || line < 1) ? null : line,
+          line: isNaN(line) || line < 1 ? null : line,
         });
         return;
       }
@@ -238,8 +244,8 @@ function filterFiles(allFiles: string[], query: string): string[] {
   if (!query) return allFiles.slice(0, 50); // Show first 50 when no query
 
   return allFiles
-    .map(f => ({ file: f, score: scoreMatch(f, query) }))
-    .filter(f => f.score > 0)
+    .map((f) => ({ file: f, score: scoreMatch(f, query) }))
+    .filter((f) => f.score > 0)
     .sort((a, b) => b.score - a.score)
-    .map(f => f.file);
+    .map((f) => f.file);
 }

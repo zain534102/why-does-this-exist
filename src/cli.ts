@@ -1,13 +1,18 @@
 #!/usr/bin/env bun
 
 import { defineCommand, runMain } from 'citty';
+
+import type { DecisionTrail } from './types';
+
 import { version, description } from '../package.json';
-import { getBlame, extractPRNumber, findFunctionLine, getRepoInfo } from './blame';
-import { fetchPR, fetchIssues, extractIssueNumbers } from './github';
-import { buildContext, buildSystemPrompt, getVerboseContext } from './context-builder';
 import { createProvider } from './ai-providers';
-import { isConfigured } from './config-manager';
+import { getBlame, extractPRNumber, findFunctionLine, getRepoInfo } from './blame';
 import { runAuthFlow, showAuthStatus } from './commands/auth';
+import { isConfigured } from './config-manager';
+import { buildContext, buildSystemPrompt, getVerboseContext } from './context-builder';
+import { WdeError, GitError, ConfigError } from './errors';
+import { fetchPR, fetchIssues, extractIssueNumbers } from './github';
+import { invalidateTokenCache } from './github';
 import {
   printHeader,
   printFooter,
@@ -20,12 +25,9 @@ import {
   printFallbackInfo,
   printPlatformWarning,
 } from './renderer';
-import { invalidateTokenCache } from './github';
-import { WdeError, GitError, ConfigError } from './errors';
-import type { DecisionTrail } from './types';
 
 const VALID_PROVIDERS = ['anthropic', 'openai', 'ollama'] as const;
-type ValidProvider = typeof VALID_PROVIDERS[number];
+type ValidProvider = (typeof VALID_PROVIDERS)[number];
 
 function validateProvider(p: string | undefined): ValidProvider | undefined {
   if (!p) return undefined;
@@ -156,7 +158,7 @@ const main = defineCommand({
     const configured = await isConfigured();
     if (!configured) {
       console.log('');
-      console.log('wde is not configured yet. Let\'s set it up!');
+      console.log("wde is not configured yet. Let's set it up!");
       console.log('');
       await runAuthFlow();
       invalidateTokenCache();
@@ -177,7 +179,9 @@ const main = defineCommand({
         } else if (parsed.line) {
           line = parsed.line;
         } else {
-          throw new GitError('Please provide a line number (file.ts:42) or use --fn to specify a function name');
+          throw new GitError(
+            'Please provide a line number (file.ts:42) or use --fn to specify a function name',
+          );
         }
       } else if (fn) {
         throw new GitError('Please provide a file path when using --fn flag');
@@ -203,7 +207,9 @@ const main = defineCommand({
       // Check platform support
       if (repoInfo.platform !== 'github' && !local) {
         if (!json) {
-          printPlatformWarning(repoInfo.platform.charAt(0).toUpperCase() + repoInfo.platform.slice(1));
+          printPlatformWarning(
+            repoInfo.platform.charAt(0).toUpperCase() + repoInfo.platform.slice(1),
+          );
         }
       }
 
@@ -222,7 +228,9 @@ const main = defineCommand({
           if (pr) {
             const issueNumbers = extractIssueNumbers(pr.body);
             if (issueNumbers.length > 0) {
-              const issueSpinner = !json ? createSpinner(`Fetching ${issueNumbers.length} linked issue(s)...`) : null;
+              const issueSpinner = !json
+                ? createSpinner(`Fetching ${issueNumbers.length} linked issue(s)...`)
+                : null;
               issues = await fetchIssues(repoInfo.owner, repoInfo.repo, issueNumbers);
               issueSpinner?.stop();
             }
@@ -261,7 +269,7 @@ const main = defineCommand({
         explanation = await aiProvider.getResponse(
           systemPrompt,
           `Based on the following context, explain why this code exists:\n\n${context}`,
-          modelToUse
+          modelToUse,
         );
         outputJSON(trail, explanation);
       } else {
@@ -273,7 +281,7 @@ const main = defineCommand({
           systemPrompt,
           `Based on the following context, explain why this code exists:\n\n${context}`,
           modelToUse,
-          (chunk) => stream.write(chunk)
+          (chunk) => stream.write(chunk),
         );
         stream.end();
 

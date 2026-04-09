@@ -325,7 +325,7 @@ describe('getRepoFiles', () => {
   it('should throw when git exits with a non-zero code', async () => {
     // Override Bun.spawn to simulate a non-git directory
     const originalSpawn = Bun.spawn;
-    // @ts-ignore — intentional monkey-patch for testing
+    // @ts-expect-error — intentional monkey-patch for testing
     Bun.spawn = (_args: string[], _opts: unknown) => ({
       stdout: new ReadableStream({
         start(controller) {
@@ -345,14 +345,14 @@ describe('getRepoFiles', () => {
     try {
       await expect(getRepoFiles()).rejects.toThrow('Not a git repository');
     } finally {
-      // @ts-ignore
+      // @ts-expect-error
       Bun.spawn = originalSpawn;
     }
   });
 
   it('should filter out empty lines from git ls-files output', async () => {
     const originalSpawn = Bun.spawn;
-    // @ts-ignore
+    // @ts-expect-error
     Bun.spawn = (_args: string[], _opts: unknown) => ({
       stdout: new ReadableStream({
         start(controller) {
@@ -372,7 +372,7 @@ describe('getRepoFiles', () => {
       const files = await getRepoFiles();
       expect(files).toEqual(['file1.ts', 'file2.ts']);
     } finally {
-      // @ts-ignore
+      // @ts-expect-error
       Bun.spawn = originalSpawn;
     }
   });

@@ -51,21 +51,21 @@ mock.module('../src/file-search', () => ({
  * Returns restore().
  */
 function patchStdin() {
-  // @ts-ignore
+  // @ts-expect-error
   const origSetRawMode = process.stdin.setRawMode;
   const origResume = process.stdin.resume.bind(process.stdin);
   const origPause = process.stdin.pause.bind(process.stdin);
   const origSetEncoding = process.stdin.setEncoding.bind(process.stdin);
 
-  // @ts-ignore
+  // @ts-expect-error
   process.stdin.setRawMode = (_mode: boolean) => process.stdin;
   process.stdin.resume = () => process.stdin;
   process.stdin.pause = () => process.stdin;
-  // @ts-ignore
+  // @ts-expect-error
   process.stdin.setEncoding = (_enc: string) => process.stdin;
 
   return () => {
-    // @ts-ignore
+    // @ts-expect-error
     if (origSetRawMode) process.stdin.setRawMode = origSetRawMode;
     process.stdin.resume = origResume;
     process.stdin.pause = origPause;
@@ -76,7 +76,7 @@ function patchStdin() {
 /** Suppress stdout to keep test output clean. Returns restore(). */
 function silenceStdout() {
   const orig = process.stdout.write.bind(process.stdout);
-  // @ts-ignore
+  // @ts-expect-error
   process.stdout.write = () => true;
   return () => {
     process.stdout.write = orig;

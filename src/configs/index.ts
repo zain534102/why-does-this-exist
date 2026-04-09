@@ -1,5 +1,5 @@
-import { type GitHubConfig, loadGitHubConfig } from './github';
 import { type AppConfig, loadAppConfig } from './app';
+import { type GitHubConfig, loadGitHubConfig } from './github';
 
 export type { GitHubConfig } from './github';
 export type { AppConfig } from './app';

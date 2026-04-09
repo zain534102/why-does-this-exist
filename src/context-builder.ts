@@ -1,4 +1,5 @@
 import type { DecisionTrail } from './types';
+
 import { app } from './configs';
 
 /**
@@ -18,7 +19,9 @@ export function buildContext(trail: DecisionTrail): string {
   // Header
   sections.push('# Code Decision Trail');
   sections.push('');
-  sections.push('You are analyzing why a specific piece of code exists. Below is all the context we could gather from git history, PRs, and issues.');
+  sections.push(
+    'You are analyzing why a specific piece of code exists. Below is all the context we could gather from git history, PRs, and issues.',
+  );
   sections.push('');
 
   // Commit info
@@ -60,7 +63,9 @@ export function buildContext(trail: DecisionTrail): string {
     if (trail.pr.reviewComments.length > 0) {
       sections.push('### Code Review Comments');
       for (const comment of trail.pr.reviewComments.slice(0, 10)) {
-        sections.push(`**${comment.user}** on \`${comment.path}${comment.line ? `:${comment.line}` : ''}\`:`);
+        sections.push(
+          `**${comment.user}** on \`${comment.path}${comment.line ? `:${comment.line}` : ''}\`:`,
+        );
         sections.push(`> ${truncate(comment.body, 300).replace(/\n/g, '\n> ')}`);
         sections.push('');
       }
@@ -70,14 +75,18 @@ export function buildContext(trail: DecisionTrail): string {
     if (trail.pr.comments.length > 0) {
       sections.push('### PR Discussion');
       for (const comment of trail.pr.comments.slice(0, 5)) {
-        sections.push(`**${comment.user}**${comment.reactions > 0 ? ` (${comment.reactions} reactions)` : ''}:`);
+        sections.push(
+          `**${comment.user}**${comment.reactions > 0 ? ` (${comment.reactions} reactions)` : ''}:`,
+        );
         sections.push(`> ${truncate(comment.body, 300).replace(/\n/g, '\n> ')}`);
         sections.push('');
       }
     }
   } else {
     sections.push('## Pull Request');
-    sections.push('*No PR found for this commit. It may have been pushed directly to the main branch.*');
+    sections.push(
+      '*No PR found for this commit. It may have been pushed directly to the main branch.*',
+    );
     sections.push('');
   }
 
@@ -99,7 +108,9 @@ export function buildContext(trail: DecisionTrail): string {
       if (issue.comments.length > 0) {
         sections.push('**Key Comments:**');
         for (const comment of issue.comments.slice(0, 3)) {
-          sections.push(`- **${comment.user}**: ${truncate(comment.body, 200).replace(/\n/g, ' ')}`);
+          sections.push(
+            `- **${comment.user}**: ${truncate(comment.body, 200).replace(/\n/g, ' ')}`,
+          );
         }
         sections.push('');
       }
@@ -187,7 +198,9 @@ export function getVerboseContext(trail: DecisionTrail, builtContext: string): s
   sections.push(`Repository: ${trail.repoOwner}/${trail.repo}`);
   sections.push(`Commit: ${trail.blame.sha}`);
   sections.push(`PR: ${trail.pr ? `#${trail.pr.number}` : 'None found'}`);
-  sections.push(`Issues: ${trail.issues.length > 0 ? trail.issues.map(i => `#${i.number}`).join(', ') : 'None found'}`);
+  sections.push(
+    `Issues: ${trail.issues.length > 0 ? trail.issues.map((i) => `#${i.number}`).join(', ') : 'None found'}`,
+  );
   sections.push('');
   sections.push('───────────────────────────────────────────────────────────────');
   sections.push('                    PROMPT SENT TO CLAUDE');

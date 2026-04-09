@@ -1,6 +1,7 @@
+import { mkdir, chmod } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
-import { mkdir, chmod } from 'fs/promises';
+
 import {
   storeCredential,
   getCredential,
@@ -60,7 +61,8 @@ function isValidConfig(obj: unknown): obj is Partial<UserConfig> {
   }
 
   if (o.preferences !== undefined) {
-    if (typeof o.preferences !== 'object' || o.preferences === null || Array.isArray(o.preferences)) return false;
+    if (typeof o.preferences !== 'object' || o.preferences === null || Array.isArray(o.preferences))
+      return false;
   }
 
   return true;
@@ -106,7 +108,7 @@ export async function updateUserConfig(updates: Partial<UserConfig>): Promise<Us
 
 export async function storeApiKey(
   provider: 'anthropic' | 'openai',
-  apiKey: string
+  apiKey: string,
 ): Promise<boolean> {
   return storeCredential(CREDENTIAL_KEY_MAP[provider], apiKey);
 }
@@ -121,9 +123,7 @@ const CREDENTIAL_KEY_MAP = {
   openai: 'openai-api-key',
 } as const;
 
-export async function getApiKey(
-  provider: 'anthropic' | 'openai'
-): Promise<string | null> {
+export async function getApiKey(provider: 'anthropic' | 'openai'): Promise<string | null> {
   const envVar = ENV_VAR_MAP[provider];
   if (process.env[envVar]) {
     return process.env[envVar]!;

@@ -34,7 +34,7 @@ export class GitHubError extends WdeError {
     message: string,
     statusCode?: number,
     rateLimitRemaining?: number,
-    rateLimitReset?: Date
+    rateLimitReset?: Date,
   ) {
     super(message);
     this.name = 'GitHubError';

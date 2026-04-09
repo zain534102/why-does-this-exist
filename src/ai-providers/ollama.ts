@@ -1,5 +1,7 @@
 import { Ollama } from 'ollama';
+
 import type { AIProvider, ProviderConfig } from './types';
+
 import { AIError, ConfigError } from '../errors';
 
 export class OllamaProvider implements AIProvider {
@@ -49,13 +51,7 @@ export class OllamaProvider implements AIProvider {
   }
 
   getAvailableModels(): string[] {
-    return [
-      'llama3.2',
-      'llama3.1',
-      'mistral',
-      'codellama',
-      'deepseek-coder',
-    ];
+    return ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'deepseek-coder'];
   }
 
   async validate(): Promise<{ valid: boolean; error?: string }> {
@@ -67,7 +63,7 @@ export class OllamaProvider implements AIProvider {
       const safeUrl = this.getSafeUrlForDisplay();
       return {
         valid: false,
-        error: `Could not connect to Ollama at ${safeUrl}. Is Ollama running?`
+        error: `Could not connect to Ollama at ${safeUrl}. Is Ollama running?`,
       };
     }
   }
@@ -76,7 +72,7 @@ export class OllamaProvider implements AIProvider {
     systemPrompt: string,
     userPrompt: string,
     model: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
   ): Promise<string> {
     const client = this.getClient();
 
@@ -106,11 +102,7 @@ export class OllamaProvider implements AIProvider {
     }
   }
 
-  async getResponse(
-    systemPrompt: string,
-    userPrompt: string,
-    model: string
-  ): Promise<string> {
+  async getResponse(systemPrompt: string, userPrompt: string, model: string): Promise<string> {
     const client = this.getClient();
 
     try {
@@ -138,13 +130,12 @@ export class OllamaProvider implements AIProvider {
 
     if (message.includes('ECONNREFUSED') || message.includes('fetch failed')) {
       return new ConfigError(
-        'Could not connect to Ollama. Is it running?\n' +
-        'Start Ollama with: ollama serve'
+        'Could not connect to Ollama. Is it running?\n' + 'Start Ollama with: ollama serve',
       );
     }
     if (message.includes('model') && message.includes('not found')) {
       return new ConfigError(
-        `Model not found. Pull it with: ollama pull ${this.getDefaultModel()}`
+        `Model not found. Pull it with: ollama pull ${this.getDefaultModel()}`,
       );
     }
 
