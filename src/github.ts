@@ -1,7 +1,8 @@
 import type { PRContext, IssueContext, Comment, ReviewComment } from './types';
-import { GitHubError } from './errors';
-import { github } from './configs';
+
 import { getGitHubToken } from './config-manager';
+import { github } from './configs';
+import { GitHubError } from './errors';
 
 type GitHubHeaders = Record<string, string>;
 
@@ -27,7 +28,7 @@ async function getHeaders(): Promise<GitHubHeaders> {
   const token = await resolveToken();
 
   const headers: GitHubHeaders = {
-    'Accept': 'application/vnd.github.v3+json',
+    Accept: 'application/vnd.github.v3+json',
     'User-Agent': cfg.userAgent,
   };
 
@@ -69,7 +70,7 @@ async function handleResponse(response: Response): Promise<unknown> {
       if (!(await hasToken())) {
         throw new GitHubError(
           'Resource not found. If this is a private repo, run `wde auth` to set up GitHub token.',
-          404
+          404,
         );
       }
       throw new GitHubError('Resource not found on GitHub.', 404);
@@ -82,28 +83,32 @@ async function handleResponse(response: Response): Promise<unknown> {
         `GitHub API rate limit exceeded. Resets at ${resetTime}.${!hasGitHubToken ? ' Run `wde auth` to set up GitHub token.' : ''}`,
         403,
         rateLimitRemaining,
-        rateLimitReset
+        rateLimitReset,
       );
     }
 
     if (response.status === 401) {
-      throw new GitHubError(
-        'GitHub authentication failed. Check your GITHUB_TOKEN.',
-        401
-      );
+      throw new GitHubError('GitHub authentication failed. Check your GITHUB_TOKEN.', 401);
     }
 
-    throw new GitHubError(`GitHub API error (${response.status}). Check token permissions and try again.`, response.status);
+    throw new GitHubError(
+      `GitHub API error (${response.status}). Check token permissions and try again.`,
+      response.status,
+    );
   }
 
   return response.json();
 }
 
-export async function fetchPR(owner: string, repo: string, prNumber: number): Promise<PRContext | null> {
+export async function fetchPR(
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<PRContext | null> {
   try {
     const url = `${getApiBase()}/repos/${owner}/${repo}/pulls/${prNumber}`;
     const response = await fetchWithTimeout(url, await getHeaders());
-    const pr = await handleResponse(response) as {
+    const pr = (await handleResponse(response)) as {
       number: number;
       title: string;
       body: string | null;
@@ -118,7 +123,7 @@ export async function fetchPR(owner: string, repo: string, prNumber: number): Pr
       number: pr.number,
       title: pr.title,
       body: pr.body ?? '',
-      labels: pr.labels.map(l => l.name),
+      labels: pr.labels.map((l) => l.name),
       state: pr.state,
       reviewComments,
       comments,
@@ -131,11 +136,15 @@ export async function fetchPR(owner: string, repo: string, prNumber: number): Pr
   }
 }
 
-async function fetchReviewComments(owner: string, repo: string, prNumber: number): Promise<ReviewComment[]> {
+async function fetchReviewComments(
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<ReviewComment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=${cfg.perPage}`;
   const response = await fetchWithTimeout(url, await getHeaders());
-  const data = await handleResponse(response) as Array<{
+  const data = (await handleResponse(response)) as Array<{
     id: number;
     body: string;
     user: { login: string } | null;
@@ -145,9 +154,9 @@ async function fetchReviewComments(owner: string, repo: string, prNumber: number
   }>;
 
   return data
-    .filter(c => !isBot(c.user?.login))
+    .filter((c) => !isBot(c.user?.login))
     .slice(0, cfg.maxReviewComments)
-    .map(c => ({
+    .map((c) => ({
       id: c.id,
       body: c.body,
       user: c.user?.login ?? 'unknown',
@@ -161,7 +170,7 @@ async function fetchPRComments(owner: string, repo: string, prNumber: number): P
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=${cfg.perPage}`;
   const response = await fetchWithTimeout(url, await getHeaders());
-  const data = await handleResponse(response) as Array<{
+  const data = (await handleResponse(response)) as Array<{
     id: number;
     body: string;
     user: { login: string } | null;
@@ -170,10 +179,10 @@ async function fetchPRComments(owner: string, repo: string, prNumber: number): P
   }>;
 
   return data
-    .filter(c => !isBot(c.user?.login))
+    .filter((c) => !isBot(c.user?.login))
     .sort((a, b) => (b.reactions?.total_count ?? 0) - (a.reactions?.total_count ?? 0))
     .slice(0, cfg.maxPRComments)
-    .map(c => ({
+    .map((c) => ({
       id: c.id,
       body: c.body,
       user: c.user?.login ?? 'unknown',
@@ -209,11 +218,15 @@ export function extractIssueNumbers(prBody: string): number[] {
   return Array.from(issues);
 }
 
-export async function fetchIssue(owner: string, repo: string, issueNumber: number): Promise<IssueContext | null> {
+export async function fetchIssue(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+): Promise<IssueContext | null> {
   try {
     const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${issueNumber}`;
     const response = await fetchWithTimeout(url, await getHeaders());
-    const issue = await handleResponse(response) as {
+    const issue = (await handleResponse(response)) as {
       number: number;
       title: string;
       body: string | null;
@@ -233,7 +246,7 @@ export async function fetchIssue(owner: string, repo: string, issueNumber: numbe
       title: issue.title,
       body: issue.body ?? '',
       state: issue.state,
-      labels: issue.labels.map(l => l.name),
+      labels: issue.labels.map((l) => l.name),
       comments,
     };
   } catch (error) {
@@ -244,11 +257,15 @@ export async function fetchIssue(owner: string, repo: string, issueNumber: numbe
   }
 }
 
-async function fetchIssueComments(owner: string, repo: string, issueNumber: number): Promise<Comment[]> {
+async function fetchIssueComments(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+): Promise<Comment[]> {
   const cfg = github();
   const url = `${getApiBase()}/repos/${owner}/${repo}/issues/${issueNumber}/comments?per_page=${cfg.perPage}`;
   const response = await fetchWithTimeout(url, await getHeaders());
-  const data = await handleResponse(response) as Array<{
+  const data = (await handleResponse(response)) as Array<{
     id: number;
     body: string;
     user: { login: string } | null;
@@ -257,10 +274,10 @@ async function fetchIssueComments(owner: string, repo: string, issueNumber: numb
   }>;
 
   return data
-    .filter(c => !isBot(c.user?.login))
+    .filter((c) => !isBot(c.user?.login))
     .sort((a, b) => (b.reactions?.total_count ?? 0) - (a.reactions?.total_count ?? 0))
     .slice(0, cfg.maxIssueComments)
-    .map(c => ({
+    .map((c) => ({
       id: c.id,
       body: c.body,
       user: c.user?.login ?? 'unknown',
@@ -269,15 +286,17 @@ async function fetchIssueComments(owner: string, repo: string, issueNumber: numb
     }));
 }
 
-export async function fetchIssues(owner: string, repo: string, issueNumbers: number[]): Promise<IssueContext[]> {
+export async function fetchIssues(
+  owner: string,
+  repo: string,
+  issueNumbers: number[],
+): Promise<IssueContext[]> {
   const issues: IssueContext[] = [];
   const cfg = github();
 
   for (let i = 0; i < issueNumbers.length; i += cfg.batchSize) {
     const batch = issueNumbers.slice(i, i + cfg.batchSize);
-    const results = await Promise.all(
-      batch.map(num => fetchIssue(owner, repo, num))
-    );
+    const results = await Promise.all(batch.map((num) => fetchIssue(owner, repo, num)));
     for (const issue of results) {
       if (issue) issues.push(issue);
     }
@@ -297,5 +316,5 @@ function isBot(username: string | undefined | null): boolean {
     /^sonarcloud/i,
     /^snyk/i,
   ];
-  return botPatterns.some(p => p.test(username));
+  return botPatterns.some((p) => p.test(username));
 }

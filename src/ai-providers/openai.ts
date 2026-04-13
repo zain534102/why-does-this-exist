@@ -1,7 +1,9 @@
 import OpenAI from 'openai';
+
 import type { AIProvider, ProviderConfig } from './types';
-import { AIError, ConfigError } from '../errors';
+
 import { getApiKey } from '../config-manager';
+import { AIError, ConfigError } from '../errors';
 
 export class OpenAIProvider implements AIProvider {
   name = 'OpenAI (GPT)';
@@ -16,11 +18,10 @@ export class OpenAIProvider implements AIProvider {
   private async resolveApiKey(): Promise<string> {
     if (this.resolvedApiKey) return this.resolvedApiKey;
 
-    const apiKey = this.config.apiKey || await getApiKey('openai');
+    const apiKey = this.config.apiKey || (await getApiKey('openai'));
     if (!apiKey) {
       throw new ConfigError(
-        'OpenAI API key not configured.\n' +
-        'Run `wde auth` to set up authentication.'
+        'OpenAI API key not configured.\n' + 'Run `wde auth` to set up authentication.',
       );
     }
     this.resolvedApiKey = apiKey;
@@ -60,16 +61,11 @@ export class OpenAIProvider implements AIProvider {
   }
 
   getAvailableModels(): string[] {
-    return [
-      'gpt-4o',
-      'gpt-4o-mini',
-      'gpt-4-turbo',
-      'gpt-3.5-turbo',
-    ];
+    return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'];
   }
 
   async validate(): Promise<{ valid: boolean; error?: string }> {
-    const apiKey = this.config.apiKey || await getApiKey('openai');
+    const apiKey = this.config.apiKey || (await getApiKey('openai'));
     if (!apiKey) {
       return { valid: false, error: 'API key not configured' };
     }
@@ -86,7 +82,7 @@ export class OpenAIProvider implements AIProvider {
     systemPrompt: string,
     userPrompt: string,
     model: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
   ): Promise<string> {
     const client = await this.getClient();
 
@@ -117,11 +113,7 @@ export class OpenAIProvider implements AIProvider {
     }
   }
 
-  async getResponse(
-    systemPrompt: string,
-    userPrompt: string,
-    model: string
-  ): Promise<string> {
+  async getResponse(systemPrompt: string, userPrompt: string, model: string): Promise<string> {
     const client = await this.getClient();
 
     try {

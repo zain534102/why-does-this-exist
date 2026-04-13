@@ -1,7 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
+
 import type { AIProvider, ProviderConfig } from './types';
-import { AIError, ConfigError } from '../errors';
+
 import { getApiKey } from '../config-manager';
+import { AIError, ConfigError } from '../errors';
 
 export class AnthropicProvider implements AIProvider {
   name = 'Anthropic (Claude)';
@@ -17,11 +19,10 @@ export class AnthropicProvider implements AIProvider {
     if (this.resolvedApiKey) return this.resolvedApiKey;
 
     // Check config first, then keychain/env
-    const apiKey = this.config.apiKey || await getApiKey('anthropic');
+    const apiKey = this.config.apiKey || (await getApiKey('anthropic'));
     if (!apiKey) {
       throw new ConfigError(
-        'Anthropic API key not configured.\n' +
-        'Run `wde auth` to set up authentication.'
+        'Anthropic API key not configured.\n' + 'Run `wde auth` to set up authentication.',
       );
     }
     this.resolvedApiKey = apiKey;
@@ -41,15 +42,11 @@ export class AnthropicProvider implements AIProvider {
   }
 
   getAvailableModels(): string[] {
-    return [
-      'claude-sonnet-4-20250514',
-      'claude-opus-4-20250514',
-      'claude-haiku-4-20250514',
-    ];
+    return ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-haiku-4-20250514'];
   }
 
   async validate(): Promise<{ valid: boolean; error?: string }> {
-    const apiKey = this.config.apiKey || await getApiKey('anthropic');
+    const apiKey = this.config.apiKey || (await getApiKey('anthropic'));
     if (!apiKey) {
       return { valid: false, error: 'API key not configured' };
     }
@@ -66,7 +63,7 @@ export class AnthropicProvider implements AIProvider {
     systemPrompt: string,
     userPrompt: string,
     model: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
   ): Promise<string> {
     const client = await this.getClient();
 
@@ -94,11 +91,7 @@ export class AnthropicProvider implements AIProvider {
     }
   }
 
-  async getResponse(
-    systemPrompt: string,
-    userPrompt: string,
-    model: string
-  ): Promise<string> {
+  async getResponse(systemPrompt: string, userPrompt: string, model: string): Promise<string> {
     const client = await this.getClient();
 
     try {
@@ -109,7 +102,7 @@ export class AnthropicProvider implements AIProvider {
         messages: [{ role: 'user', content: userPrompt }],
       });
 
-      const textBlock = response.content.find(block => block.type === 'text');
+      const textBlock = response.content.find((block) => block.type === 'text');
       if (!textBlock || textBlock.type !== 'text') {
         throw new AIError('Unexpected response format from Claude API');
       }

@@ -1,4 +1,5 @@
 import pc from 'picocolors';
+
 import type { DecisionTrail, ExplainResult } from './types';
 
 // Check if output should be colorized
@@ -8,15 +9,15 @@ const isInteractive = process.stdout.isTTY && !process.env.NO_COLOR;
  * Color helper that respects NO_COLOR and pipe detection
  */
 const c = {
-  bold: (s: string) => isInteractive ? pc.bold(s) : s,
-  dim: (s: string) => isInteractive ? pc.dim(s) : s,
-  cyan: (s: string) => isInteractive ? pc.cyan(s) : s,
-  green: (s: string) => isInteractive ? pc.green(s) : s,
-  yellow: (s: string) => isInteractive ? pc.yellow(s) : s,
-  blue: (s: string) => isInteractive ? pc.blue(s) : s,
-  magenta: (s: string) => isInteractive ? pc.magenta(s) : s,
-  red: (s: string) => isInteractive ? pc.red(s) : s,
-  gray: (s: string) => isInteractive ? pc.gray(s) : s,
+  bold: (s: string) => (isInteractive ? pc.bold(s) : s),
+  dim: (s: string) => (isInteractive ? pc.dim(s) : s),
+  cyan: (s: string) => (isInteractive ? pc.cyan(s) : s),
+  green: (s: string) => (isInteractive ? pc.green(s) : s),
+  yellow: (s: string) => (isInteractive ? pc.yellow(s) : s),
+  blue: (s: string) => (isInteractive ? pc.blue(s) : s),
+  magenta: (s: string) => (isInteractive ? pc.magenta(s) : s),
+  red: (s: string) => (isInteractive ? pc.red(s) : s),
+  gray: (s: string) => (isInteractive ? pc.gray(s) : s),
 };
 
 /**
@@ -27,7 +28,10 @@ const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', 
 /**
  * Create a simple spinner for async operations
  */
-export function createSpinner(message: string): { stop: (success?: boolean) => void; update: (msg: string) => void } {
+export function createSpinner(message: string): {
+  stop: (success?: boolean) => void;
+  update: (msg: string) => void;
+} {
   if (!isInteractive) {
     console.log(message);
     return {
@@ -112,14 +116,18 @@ export function printSources(trail: DecisionTrail): void {
   // PR
   if (pr) {
     const prUrl = `https://github.com/${repoOwner}/${repo}/pull/${pr.number}`;
-    console.log(`  ${c.green('•')} PR #${pr.number}: ${pr.title.slice(0, 50)}${pr.title.length > 50 ? '...' : ''}`);
+    console.log(
+      `  ${c.green('•')} PR #${pr.number}: ${pr.title.slice(0, 50)}${pr.title.length > 50 ? '...' : ''}`,
+    );
     console.log(`    ${c.dim(prUrl)}`);
   }
 
   // Issues
   for (const issue of issues) {
     const issueUrl = `https://github.com/${repoOwner}/${repo}/issues/${issue.number}`;
-    console.log(`  ${c.magenta('•')} Issue #${issue.number}: ${issue.title.slice(0, 50)}${issue.title.length > 50 ? '...' : ''}`);
+    console.log(
+      `  ${c.magenta('•')} Issue #${issue.number}: ${issue.title.slice(0, 50)}${issue.title.length > 50 ? '...' : ''}`,
+    );
     console.log(`    ${c.dim(issueUrl)}`);
   }
 
@@ -143,7 +151,7 @@ export function outputJSON(trail: DecisionTrail, explanation: string): void {
     sources: {
       sha: trail.blame.sha,
       prNumber: trail.pr?.number ?? null,
-      issueNumbers: trail.issues.map(i => i.number),
+      issueNumbers: trail.issues.map((i) => i.number),
     },
   };
 

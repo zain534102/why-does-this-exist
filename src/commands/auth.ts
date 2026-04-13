@@ -1,4 +1,6 @@
 import pc from 'picocolors';
+
+import { getSupportedProviders, getProvider, type ProviderType } from '../ai-providers';
 import {
   loadUserConfig,
   saveUserConfig,
@@ -9,7 +11,6 @@ import {
   isSecureStorageAvailable,
   clearConfig,
 } from '../config-manager';
-import { getSupportedProviders, getProvider, type ProviderType } from '../ai-providers';
 
 const isInteractive = process.stdout.isTTY;
 
@@ -35,7 +36,7 @@ async function prompt(question: string): Promise<string> {
  */
 async function promptSelect(
   question: string,
-  options: Array<{ id: string; name: string; description: string }>
+  options: Array<{ id: string; name: string; description: string }>,
 ): Promise<string> {
   console.log(question);
   console.log('');
@@ -107,7 +108,11 @@ function validateOllamaHost(host: string): void {
       throw new Error('Ollama host must not contain credentials in the URL');
     }
     if (url.protocol === 'http:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
-      console.log(pc.yellow('⚠ Warning: Using plain HTTP with a non-localhost address. Consider using HTTPS.'));
+      console.log(
+        pc.yellow(
+          '⚠ Warning: Using plain HTTP with a non-localhost address. Consider using HTTPS.',
+        ),
+      );
     }
   } catch (e) {
     if (e instanceof Error && e.message.startsWith('Ollama host')) throw e;
@@ -130,7 +135,7 @@ export async function runAuthFlow(): Promise<void> {
   console.log('');
   console.log(pc.bold(pc.cyan('━━━ wde auth ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')));
   console.log('');
-  console.log('Let\'s set up wde to analyze your code!');
+  console.log("Let's set up wde to analyze your code!");
   console.log('');
 
   // Check if secure storage is available
@@ -147,10 +152,10 @@ export async function runAuthFlow(): Promise<void> {
 
   // Step 1: Choose AI provider
   const providers = getSupportedProviders();
-  const providerChoice = await promptSelect(
+  const providerChoice = (await promptSelect(
     'Which AI provider would you like to use?',
-    providers.map(p => ({ id: p.id, name: p.name, description: p.description }))
-  ) as ProviderType;
+    providers.map((p) => ({ id: p.id, name: p.name, description: p.description })),
+  )) as ProviderType;
 
   config.ai.provider = providerChoice;
 
@@ -260,7 +265,7 @@ export async function runAuthFlow(): Promise<void> {
   }
   console.log(pc.dim(`  Settings: ${getConfigPath()}`));
   console.log('');
-  console.log('You\'re all set! Try running:');
+  console.log("You're all set! Try running:");
   console.log(pc.cyan('  wde src/cli.ts:1'));
   console.log('');
 }
@@ -287,7 +292,7 @@ export async function showAuthStatus(): Promise<void> {
 
   // AI Provider
   const providers = getSupportedProviders();
-  const currentProvider = providers.find(p => p.id === config.ai.provider);
+  const currentProvider = providers.find((p) => p.id === config.ai.provider);
   console.log(`AI Provider: ${pc.cyan(currentProvider?.name || config.ai.provider)}`);
 
   if (config.ai.provider === 'ollama') {

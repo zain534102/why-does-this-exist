@@ -1,9 +1,10 @@
 import type { AIProvider, ProviderConfig } from './types';
-import { AnthropicProvider } from './anthropic';
-import { OpenAIProvider } from './openai';
-import { OllamaProvider } from './ollama';
+
 import { loadUserConfig } from '../config-manager';
 import { ConfigError } from '../errors';
+import { AnthropicProvider } from './anthropic';
+import { OllamaProvider } from './ollama';
+import { OpenAIProvider } from './openai';
 
 export type { AIProvider, ProviderConfig } from './types';
 export { AnthropicProvider } from './anthropic';
@@ -12,22 +13,26 @@ export { OllamaProvider } from './ollama';
 
 export type ProviderType = 'anthropic' | 'openai' | 'ollama';
 
-export function getSupportedProviders(): Array<{ id: ProviderType; name: string; description: string }> {
+export function getSupportedProviders(): Array<{
+  id: ProviderType;
+  name: string;
+  description: string;
+}> {
   return [
     {
       id: 'anthropic',
       name: 'Anthropic (Claude)',
-      description: 'Best for reasoning over messy PR/issue text (recommended)'
+      description: 'Best for reasoning over messy PR/issue text (recommended)',
     },
     {
       id: 'openai',
       name: 'OpenAI (GPT)',
-      description: 'GPT-4o and other OpenAI models'
+      description: 'GPT-4o and other OpenAI models',
     },
     {
       id: 'ollama',
       name: 'Ollama (Local)',
-      description: 'Run locally with Llama, Mistral, etc. (free, no API key)'
+      description: 'Run locally with Llama, Mistral, etc. (free, no API key)',
     },
   ];
 }
