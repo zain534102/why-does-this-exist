@@ -18,7 +18,7 @@
     "postinstall": "echo '\\n✓ wde installed! Run: wde auth\\n'"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.85.0",
+    "@anthropic-ai/sdk": "0.88.0",
     "citty": "0.2.1",
     "keytar": "^7.9.0",
     "ollama": "^0.5.11",
