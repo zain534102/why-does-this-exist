@@ -1,5 +1,4 @@
 import type { PRContext, IssueContext, Comment, ReviewComment } from './types';
-
 import { getGitHubToken } from './config-manager';
 import { github } from './configs';
 import { GitHubError } from './errors';

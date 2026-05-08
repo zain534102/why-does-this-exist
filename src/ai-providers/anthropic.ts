@@ -1,7 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-
 import type { AIProvider, ProviderConfig } from './types';
-
 import { getApiKey } from '../config-manager';
 import { AIError, ConfigError } from '../errors';
 

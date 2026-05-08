@@ -1,7 +1,5 @@
 import OpenAI from 'openai';
-
 import type { AIProvider, ProviderConfig } from './types';
-
 import { getApiKey } from '../config-manager';
 import { AIError, ConfigError } from '../errors';
 

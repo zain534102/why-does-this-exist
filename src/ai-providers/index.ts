@@ -1,5 +1,4 @@
 import type { AIProvider, ProviderConfig } from './types';
-
 import { loadUserConfig } from '../config-manager';
 import { ConfigError } from '../errors';
 import { AnthropicProvider } from './anthropic';

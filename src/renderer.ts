@@ -1,5 +1,4 @@
 import pc from 'picocolors';
-
 import type { DecisionTrail, ExplainResult } from './types';
 
 // Check if output should be colorized

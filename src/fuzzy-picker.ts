@@ -1,5 +1,4 @@
 import pc from 'picocolors';
-
 import { scoreMatch, getRepoFiles } from './file-search';
 
 const MAX_VISIBLE = 8;

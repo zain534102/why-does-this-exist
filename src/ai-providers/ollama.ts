@@ -1,7 +1,5 @@
 import { Ollama } from 'ollama';
-
 import type { AIProvider, ProviderConfig } from './types';
-
 import { AIError, ConfigError } from '../errors';
 
 export class OllamaProvider implements AIProvider {

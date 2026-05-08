@@ -1,5 +1,4 @@
 import type { DecisionTrail } from './types';
-
 import { app } from './configs';
 
 /**

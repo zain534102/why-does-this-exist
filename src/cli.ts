@@ -1,9 +1,7 @@
 #!/usr/bin/env bun
 
 import { defineCommand, runMain } from 'citty';
-
 import type { DecisionTrail } from './types';
-
 import { version, description } from '../package.json';
 import { createProvider } from './ai-providers';
 import { getBlame, extractPRNumber, findFunctionLine, getRepoInfo } from './blame';

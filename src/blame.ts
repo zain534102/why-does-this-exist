@@ -1,8 +1,6 @@
 import { $ } from 'bun';
 import { resolve } from 'path';
-
 import type { BlameResult, RepoInfo } from './types';
-
 import { app } from './configs';
 import { GitError } from './errors';
 
