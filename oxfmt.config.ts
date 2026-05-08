@@ -8,8 +8,8 @@ export default defineConfig({
     printWidth: 100,
     tabWidth: 2,
     trailingComma: 'all',
-    sortPackageJson: true,
     sortImports: {
+        newlinesBetween: false,
         groups: [
             'type-import',
             ['value-builtin', 'value-external'],
@@ -19,6 +19,9 @@ export default defineConfig({
             ['value-parent', 'value-sibling', 'value-index'],
             'unknown',
         ],
+    },
+    sortPackageJson: {
+        sortScripts: true,
     },
     ignorePatterns: [
         '.github/**/*',

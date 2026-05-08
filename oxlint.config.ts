@@ -32,6 +32,7 @@ export default defineConfig({
     ignorePatterns: [
         'dist',
         'node_modules',
+        'oxfmt.config.ts',
         'oxlint.config.ts',
     ],
 })
