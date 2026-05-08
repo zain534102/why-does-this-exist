@@ -26,10 +26,7 @@ async function isKeytarAvailable(): Promise<boolean> {
   return keytarAvailable;
 }
 
-export type CredentialKey =
-  | 'anthropic-api-key'
-  | 'openai-api-key'
-  | 'github-token';
+export type CredentialKey = 'anthropic-api-key' | 'openai-api-key' | 'github-token';
 
 export async function storeCredential(key: CredentialKey, value: string): Promise<boolean> {
   if (await isKeytarAvailable()) {

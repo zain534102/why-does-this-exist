@@ -11,17 +11,13 @@ export interface AIProvider {
     systemPrompt: string,
     userPrompt: string,
     model: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
   ): Promise<string>;
 
   /**
    * Get a response without streaming (for JSON mode)
    */
-  getResponse(
-    systemPrompt: string,
-    userPrompt: string,
-    model: string
-  ): Promise<string>;
+  getResponse(systemPrompt: string, userPrompt: string, model: string): Promise<string>;
 
   /**
    * Get the default model for this provider

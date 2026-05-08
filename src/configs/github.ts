@@ -10,7 +10,12 @@ export interface GitHubConfig {
   batchSize: number;
 }
 
-function parsePositiveInt(value: string | undefined, defaultVal: number, min: number, max: number): number {
+function parsePositiveInt(
+  value: string | undefined,
+  defaultVal: number,
+  min: number,
+  max: number,
+): number {
   const parsed = parseInt(value ?? String(defaultVal), 10);
   if (isNaN(parsed) || parsed < min || parsed > max) {
     return defaultVal;

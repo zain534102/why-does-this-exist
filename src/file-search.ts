@@ -26,7 +26,10 @@ export function scoreMatch(filePath: string, pattern: string): number {
   const lowerPath = filePath.toLowerCase();
   const lowerPattern = pattern.toLowerCase();
 
-  const isTestFile = /(^|\/)tests?\//i.test(filePath) || /(\.|\/)(spec|__tests?__)\//i.test(filePath) || /\.(test|spec)\./i.test(filePath);
+  const isTestFile =
+    /(^|\/)tests?\//i.test(filePath) ||
+    /(\.|\/)(spec|__tests?__)\//i.test(filePath) ||
+    /\.(test|spec)\./i.test(filePath);
   const testPenalty = isTestFile ? 10 : 0;
 
   // Exact filename match (highest priority)
@@ -79,8 +82,8 @@ export function scoreMatch(filePath: string, pattern: string): number {
 export async function searchFiles(pattern: string): Promise<string[]> {
   const files = await getRepoFiles();
   const scored = files
-    .map(f => ({ file: f, score: scoreMatch(f, pattern) }))
-    .filter(f => f.score > 0)
+    .map((f) => ({ file: f, score: scoreMatch(f, pattern) }))
+    .filter((f) => f.score > 0)
     .sort((a, b) => b.score - a.score);
 
   if (scored.length === 0) return [];
@@ -90,7 +93,7 @@ export async function searchFiles(pattern: string): Promise<string[]> {
     return [scored[0].file];
   }
 
-  return scored.map(s => s.file);
+  return scored.map((s) => s.file);
 }
 
 /**
@@ -98,7 +101,7 @@ export async function searchFiles(pattern: string): Promise<string[]> {
  */
 export async function searchFunction(
   functionName: string,
-  filePattern?: string
+  filePattern?: string,
 ): Promise<Array<{ file: string; line: number }>> {
   const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const patterns = [
@@ -124,15 +127,35 @@ export async function searchFunction(
 
   // Only search text files with common code extensions
   const codeExtensions = new Set([
-    'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs',
-    'py', 'rb', 'go', 'rs', 'java', 'kt',
-    'php', 'c', 'cpp', 'h', 'hpp', 'cs',
-    'swift', 'scala', 'lua', 'sh', 'bash',
-    'vue', 'svelte',
+    'ts',
+    'tsx',
+    'js',
+    'jsx',
+    'mjs',
+    'cjs',
+    'py',
+    'rb',
+    'go',
+    'rs',
+    'java',
+    'kt',
+    'php',
+    'c',
+    'cpp',
+    'h',
+    'hpp',
+    'cs',
+    'swift',
+    'scala',
+    'lua',
+    'sh',
+    'bash',
+    'vue',
+    'svelte',
   ]);
 
   const cwd = process.cwd();
-  const codeFiles = files.filter(f => {
+  const codeFiles = files.filter((f) => {
     const ext = f.split('.').pop()?.toLowerCase() || '';
     if (!codeExtensions.has(ext)) return false;
     const abs = resolve(f);
@@ -167,7 +190,7 @@ export async function searchFunction(
 export async function interactiveSelect(
   message: string,
   options: string[],
-  maxDisplay: number = 10
+  maxDisplay: number = 10,
 ): Promise<string | null> {
   const displayOptions = options.slice(0, maxDisplay);
   const hasMore = options.length > maxDisplay;
@@ -179,7 +202,11 @@ export async function interactiveSelect(
     console.log(`  ${pc.cyan(`${i + 1})`)} ${opt}`);
   });
   if (hasMore) {
-    console.log(pc.dim(`  ... and ${options.length - maxDisplay} more. Refine your search for better results.`));
+    console.log(
+      pc.dim(
+        `  ... and ${options.length - maxDisplay} more. Refine your search for better results.`,
+      ),
+    );
   }
   console.log('');
 
